@@ -1,0 +1,4 @@
+dmd
+-O
+$src
+-of$exe

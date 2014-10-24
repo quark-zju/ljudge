@@ -1,0 +1,15 @@
+/(dev|lib|lib64|lib32)(/.*)?
+/usr(/lib(32|64)?(/.*)?)?
+/etc(/alternatives(/.*)?)?
+/etc/ld\.so\.(cache|conf(.*)?)
+/tmp
+# java needs /proc/self/exe to know its path
+/proc
+# java needs jvm.cfg, whcih is in /etc
+/etc/java.*
+# Note: will NOT work if /usr/bin/java is a shell script.
+# Remove dummy shell script and use symbol link:
+#
+#   unline /usr/bin/java
+#   sudo ln -s $JAVA_HOME/bin/java /usr/bin/java
+/usr(/bin(/java)?)?

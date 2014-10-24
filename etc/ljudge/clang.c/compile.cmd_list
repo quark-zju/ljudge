@@ -1,0 +1,10 @@
+clang
+-DONLINE_JUDGE
+-O2
+-Wall
+-std=c99
+-pipe
+$src
+-lm
+-o
+$exe

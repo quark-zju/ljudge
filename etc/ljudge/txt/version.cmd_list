@@ -1,0 +1,3 @@
+# do not expose GNU coreutils version
+echo
+1.0

@@ -1,0 +1,6 @@
+/(dev|lib|lib64|lib32)(/.*)?
+/usr(/lib(32|64)?(/.*)?)?
+/etc(/alternatives(/.*)?)?
+/etc/ld\.so\.(cache|conf(.*)?)
+/tmp
+(/usr)?(/bin(/cat)?)?

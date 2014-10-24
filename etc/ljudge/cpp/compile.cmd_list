@@ -1,0 +1,12 @@
+g++
+-DONLINE_JUDGE
+# http://codeforces.com/blog/entry/11450#comment-164021
+-fno-tree-ch
+-O2
+-Wall
+-std=c++11
+-pipe
+$src
+-lm
+-o
+$exe

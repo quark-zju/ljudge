@@ -1,0 +1,9 @@
+gccgo
+# -g is needed for Ubuntu 14.04. see https://bugs.launchpad.net/ubuntu/+source/gcc-4.9/+bug/1318027
+# You can remove -g if you are using Debian 7
+-g
+-Wall
+-pipe
+$src
+-o
+$exe

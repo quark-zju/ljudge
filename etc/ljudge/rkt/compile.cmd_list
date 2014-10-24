@@ -1,0 +1,3 @@
+raco
+make
+$src

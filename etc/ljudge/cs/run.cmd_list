@@ -1,0 +1,3 @@
+mono
+-O=all
+$exe

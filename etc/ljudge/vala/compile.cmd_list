@@ -1,0 +1,7 @@
+valac
+-D
+ONLINE_JUDGE
+--thread
+$src
+-o
+$exe

@@ -1,0 +1,3 @@
+/(dev|bin|lib|lib64|usr|tmp|etc|proc)(/.*)?
+# ghc on Debian requires /var/lib/ghc
+/var(/lib(/.*)?)?

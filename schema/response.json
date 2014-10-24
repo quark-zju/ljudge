@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "definitions": {
+    "compilationResult": {
+      "type": "object",
+      "description": "The compilation result of the source code",
+      "properties": {
+        "log": {
+          "type": "string",
+          "description": "Compiler log, including warnings and errors. Show this to end-users"
+        },
+        "success": {
+          "type": "boolean",
+          "description": "Whether compilation has succeeded"
+        },
+        "error": {
+          "type": "string",
+          "description": "Internal error message. Should not be visible to end-users. Present only when an internal error (ex. required compiler is not installed) happens"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["log", "success"]
+    },
+    "testcaseResult": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "string",
+          "enum": [
+            "ACCEPTED",
+            "PRESENTATION_ERROR",
+            "WRONG_ANSWER",
+            "NON_ZERO_EXIT_CODE",
+            "MEMORY_LIMIT_EXCEEDED",
+            "TIME_LIMIT_EXCEEDED",
+            "OUTPUT_LIMIT_EXCEEDED",
+            "FLOAT_POINT_EXCEPTION",
+            "SEGMENTATION_FAULT",
+            "RUNTIME_ERROR",
+            "INTERNAL_ERROR"
+          ],
+          "description": "Judge response for the test case"
+        },
+        "exceed": {
+          "type": "string",
+          "enum": [
+            "CPU_TIME",
+            "REAL_TIME",
+            "MEMORY",
+            "OUTPUT"
+          ],
+          "description": "The limit that the program exceeded. Present only when the program has exceeded one limit"
+        },
+        "time": {
+          "type": "number",
+          "description": "CPU time used by the program, in seconds. Present only when \"exceed\" is missing"
+        },
+        "memory": {
+          "type": "number",
+          "description": "Peak memory used by the program, in bytes. Present only when \"exceed\" is missing"
+        },
+        "exitcode": {
+          "type": "number",
+          "description": "Exit code of the program. Present only when the program exits normally"
+        },
+        "termsig": {
+          "type": "number",
+          "description": "Signal number that terminates the program. Present only when the program has not exceeded any limit and has exited abnormally (is signaled)"
+        },
+        "error": {
+          "type": "string",
+          "description": "Internal error message. Present only when \"result\" is \"INTERNAL_ERROR\". Should not be visible to end-users"
+        },
+        "stdout": {
+          "type": "string",
+          "description": "stdout output of the program. Present only when the command line option \"--keep-stdout\" is set"
+        },
+        "stderr": {
+          "type": "string",
+          "description": "stderr output of the program. Present only when the command line option \"--keep-stderr\" is set"
+        },
+        "checkerOutput": {
+          "type": "string",
+          "description": "Custom checker output (stdout and stderr). Present only when custom checker is used and it writes something to stdout"
+        }
+      },
+      "additionalProperties": false,
+      "required": ["result"]
+    }
+  },
+  "properties": {
+    "compilation": {
+      "$ref": "#/definitions/compilationResult",
+      "description": "Compilation result of the user code"
+    },
+    "checkerCompilation": {
+      "$ref": "#/definitions/compilationResult",
+      "description": "Compilation result of the custom checker code. Present only when the command line option \"--checker-code\" is provided"
+    },
+    "testcases": {
+      "type": "array",
+      "description": "Test case results. Present only when compilation has successed",
+      "items": {"$ref": "#/definitions/testcaseResult"}
+    }
+  },
+  "additionalProperties": false,
+  "required": ["compilation"]
+}

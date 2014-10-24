@@ -1,0 +1,6 @@
+# clisp needs to execve lisp.run
+# clisp calls fsync frequently and complains about its errors
+--syscalls
+!execve:a,flock,ptrace,sync,fdatasync,fsync:a,msync,sync_file_range,syncfs,unshare,setns,clone[a&268435456==268435456],query_module,sysinfo,syslog,sysfs
+--hostname
+ljudge

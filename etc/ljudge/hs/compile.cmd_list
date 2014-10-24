@@ -1,0 +1,8 @@
+ghc
+-v0
+-O2
+--make
+-threaded
+$src
+-o
+$exe

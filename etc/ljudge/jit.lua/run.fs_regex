@@ -1,0 +1,7 @@
+/(dev|lib|lib64|lib32)(/.*)?
+/usr(/lib(32|64)?(/.*)?)?
+/usr/share(/.*)?
+/etc(/alternatives(/.*)?)?
+/etc/ld\.so\.(cache|conf(.*)?)
+/tmp
+/usr/bin(/luajit([0-9.-]*)?)?
