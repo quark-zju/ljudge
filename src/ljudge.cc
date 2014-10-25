@@ -541,7 +541,6 @@ static void print_usage() {
       "Compile, run and capture output:\n"
       "  ljudge --skip-checker (implies --keep-stdout)\n"
       "         --user-code user-code-path\n"
-      "         --input input-path\n"
       "         [--input input-path] ...\n"
       "\n"
       "Available options: (put these before the first `--input`)\n"
@@ -1053,6 +1052,12 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     }
   }
   APPEND_TEST_CASE;
+
+  // if the user has decided to skip checker and did not provide a testcase, add a dummy one
+  if (options.cases.empty() && options.skip_checker) {
+    current_case.input_path = DEV_NULL;
+    APPEND_TEST_CASE;
+  }
 
 #undef APPEND_TEST_CASE
 #undef NEXT_NUMBER_ARG
