@@ -38,11 +38,7 @@ using std::vector;
 using tfm::format;
 namespace j = picojson;
 
-#ifdef NDEBUG
-# define fatal(...) { fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); cleanup_exit(1); }
-#else
-# define fatal(...) { log_error(__VA_ARGS__); cleanup_exit(1); }
-#endif
+#define fatal(...) { fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); cleanup_exit(1); }
 
 #define LJUDGE_VERSION "v0.1"
 
@@ -921,9 +917,6 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     debug_level = 0;
   }
 
-  // no false positives
-  errno = 0;
-
 #define REQUIRE_NARGV(n) if (i + n >= argc) { \
   fatal("Option '%s' requires %d argument%s.", option.c_str(), n, n > 1 ? "s" : ""); }
 #define NEXT_STRING_ARG string(argv[++i])
@@ -939,7 +932,7 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     } else if (strncmp("-", argv[i], 1) == 0) {
       option = argv[i] + 1;
     } else {
-      fatal("'%s' is not a valid option", argv[i]);
+      fatal("`%s` is not a valid option. Use `--help` for more information", argv[i]);
     }
 
     if (option == "user-code" || option == "u") {
