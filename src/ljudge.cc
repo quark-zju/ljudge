@@ -704,9 +704,9 @@ static void do_check() {
         "not work correctly. Install related libseccomp packages\n"
         "and recompile lrun.");
     print_checkpoint(
-        "lrun supports --remount-ro",
-        lrun_help.find("--remount-ro") != string::npos,
-        "Please upgrade lrun to at least v0.9.8");
+        "lrun supports --bindfs-ro",
+        lrun_help.find("--bindfs-ro") != string::npos,
+        "Please upgrade lrun to at least v1.0.0");
     print_checkpoint(
         "lrun actually works",
         check_output("lrun echo foofoo 2>" DEV_NULL).find("foofoo") != string::npos,
@@ -1507,13 +1507,11 @@ static LrunResult run_code(const string& etc_dir, const string& cache_dir, const
     LrunArgs lrun_args;
     lrun_args.append_default();
     lrun_args.append("--chroot", chroot_path);
-    lrun_args.append("--bindfs", fs::join(chroot_path, "/tmp"), dest);
-    lrun_args.append("--remount-ro", fs::join(chroot_path, "/tmp"));
+    lrun_args.append("--bindfs-ro", fs::join(chroot_path, "/tmp"), dest);
     // Hide real /etc/passwd (required by Python) on demand
     if (fs::exists(fs::join(chroot_path, ETC_PASSWD)) && get_config_content(etc_dir, code_path, OPTION_KEY_FAKE_ETC_PASSWD, OPTION_VALUE_TRUE) == OPTION_VALUE_TRUE) {
       string passwd_path = prepare_dummy_passwd(cache_dir);
-      lrun_args.append("--bindfs", fs::join(chroot_path, ETC_PASSWD), passwd_path);
-      lrun_args.append("--remount-ro", fs::join(chroot_path, ETC_PASSWD));
+      lrun_args.append("--bindfs-ro", fs::join(chroot_path, ETC_PASSWD), passwd_path);
     }
     lrun_args.append(limit);
     lrun_args.append(escape_list(extra_lrun_args, mappings));
@@ -1593,14 +1591,10 @@ static void run_custom_checker(j::object& result, const string& etc_dir, const s
 
   LrunArgs lrun_args;
 
-  lrun_args.append("--bindfs", "$chroot/tmp/input", get_full_path(testcase.input_path));
-  lrun_args.append("--bindfs", "$chroot/tmp/output", get_full_path(testcase.output_path));
-  lrun_args.append("--bindfs", "$chroot/tmp/user_output", get_full_path(user_output_path));
-  lrun_args.append("--bindfs", "$chroot/tmp/user_code", get_full_path(code_path));
-  lrun_args.append("--remount-ro", "$chroot/tmp/input");
-  lrun_args.append("--remount-ro", "$chroot/tmp/output");
-  lrun_args.append("--remount-ro", "$chroot/tmp/user_output");
-  lrun_args.append("--remount-ro", "$chroot/tmp/user_code");
+  lrun_args.append("--bindfs-ro", "$chroot/tmp/input", get_full_path(testcase.input_path));
+  lrun_args.append("--bindfs-ro", "$chroot/tmp/output", get_full_path(testcase.output_path));
+  lrun_args.append("--bindfs-ro", "$chroot/tmp/user_output", get_full_path(user_output_path));
+  lrun_args.append("--bindfs-ro", "$chroot/tmp/user_code", get_full_path(code_path));
 
   for (__typeof(envs.begin()) it = envs.begin(); it != envs.end(); ++it) {
       lrun_args.append("--env", it->first, it->second);
