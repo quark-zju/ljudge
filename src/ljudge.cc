@@ -1076,6 +1076,7 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     current_case.input_path = isatty(STDIN_FILENO) ?
         (options.direct_mode ? "" : DEV_NULL)
       : fs::resolve(format("/proc/self/fd/%d", STDIN_FILENO));
+    current_case.runtime_limit.real_time = 0;  // unlimited
     options.cases.push_back(current_case);
   }
 
