@@ -42,6 +42,7 @@ namespace fs {
   bool touch(const std::string& path);
   bool is_mounted(const std::string& path);
   std::list<std::string> scandir(const std::string& path);
+  std::string resolve(const std::string& path);
 
   extern const char PATH_SEPARATOR;
 

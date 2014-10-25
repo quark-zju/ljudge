@@ -1073,8 +1073,10 @@ static Options parse_cli_options(int argc, const char *argv[]) {
 
   // if the user has decided to skip checker and did not provide a testcase, add a dummy one
   if (options.cases.empty() && options.skip_checker) {
-    current_case.input_path = DEV_NULL;
-    APPEND_TEST_CASE;
+    current_case.input_path = isatty(STDIN_FILENO) ?
+        (options.direct_mode ? "" : DEV_NULL)
+      : fs::resolve(format("/proc/self/fd/%d", STDIN_FILENO));
+    options.cases.push_back(current_case);
   }
 
 #undef APPEND_TEST_CASE
@@ -1112,7 +1114,9 @@ static void check_options(const Options& options) {
   check_path(errors, options.user_code_path, false, "--user-code");
 
   for (int i = 0; i < (int)options.cases.size(); ++i) {
-    check_path(errors, options.cases[i].input_path, false, format("--input of testcases[%d]", i));
+    if (!options.direct_mode || !options.cases[i].input_path.empty()) {
+      check_path(errors, options.cases[i].input_path, false /* is_dir */, format("--input of testcases[%d]", i));
+    }
     if (options.skip_checker) {
       if (!options.cases[i].output_path.empty()) errors.push_back("--output conflicts with --capture-user-output");
     } else {

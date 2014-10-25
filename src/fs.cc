@@ -254,6 +254,43 @@ std::list<string> fs::scandir(const string& path) {
   return result;
 }
 
+string fs::resolve(const string& path) {
+  string result = path;
+  size_t buf_size = PATH_MAX;
+  char *buf = (char*) malloc(buf_size + 1);
+
+  if (!buf) goto cleanup;
+
+  for (string link = path;;) { // recursively readlink
+    for (;;) {
+      // readlink requires unknown space, try until we got full path
+      ssize_t out_size = readlinkat(AT_FDCWD, link.c_str(), buf, buf_size);
+      if (out_size < 0) {
+        goto cleanup;
+      } else if ((size_t) out_size >= buf_size) {
+        // try bigger
+        char *new_buf = (char*) realloc(buf, buf_size + PATH_MAX + 1);
+        if (new_buf) {
+          buf = new_buf;
+          buf_size += PATH_MAX;
+        } else {
+          // give up
+          result = buf;
+          break;
+        }
+      } else {
+        buf[out_size] = 0;
+        link = result = buf;
+        break;
+      }
+    };
+  }
+
+cleanup:
+  if (buf) free(buf);
+  return result;
+}
+
 fs::ScopedFileLock::ScopedFileLock(const string& path) {
   int fd = open(path.c_str(), O_RDONLY);
   if (fd < 0) return;
