@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdio>
+
 namespace term {
   namespace attr {
     const int RESET      = 0;
@@ -32,7 +34,7 @@ namespace term {
     const int  WHITE     = 47;
   }
 
-  extern void set(int attr, int fg);
-  extern void set(int attr, int fg, int bg);
-  extern void set(int attr = attr::RESET);
+  extern void set(int attr, int fg, FILE *fp = stdout);
+  extern void set(int attr, int fg, int bg, FILE *fp = stdout);
+  extern void set(int attr = attr::RESET, FILE *fp = stdout);
 }

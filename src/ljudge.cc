@@ -124,6 +124,7 @@ struct Options {
   bool skip_checker;  // if true, do not run can checker, but capture user program's output
   bool keep_stdout;
   bool keep_stderr;
+  bool direct_mode;  // if true, just run the program and prints the result
 };
 
 struct LrunArgs : public vector<string> {
@@ -528,16 +529,19 @@ static string prepare_chroot(const string& etc_dir, const string& code_path, con
 
 static void print_usage() {
   fprintf(stderr,
-      "Compile, run and judge:\n"
+      "Compile, run, judge and print response JSON:\n"
       "  ljudge --user-code (or -u) user-code-path\n"
       "         [--checker-code (or -c) checker-code-path\n"
       "         --input (or -i) input-path --output (or -o) output-path\n"
       "         [--input input-path --output output-path] ...\n"
       "\n"
-      "Compile, run and capture output:\n"
+      "Compile, run and print response JSON:\n"
       "  ljudge --skip-checker (implies --keep-stdout)\n"
       "         --user-code user-code-path\n"
       "         [--input input-path] ...\n"
+      "\n"
+      "Compile, run, print output instead of JSON response (the \"direct mode\"):\n"
+      "  ljudge user-code-path\n"
       "\n"
       "Available options: (put these before the first `--input`)\n"
       "  ljudge [--etc-dir path] [--cache-dir path]\n"
@@ -872,6 +876,15 @@ static void print_compiler_versions(const Options& opts, bool only_present = tru
   exit(0);
 }
 
+static bool is_language_supported(const string& etc_dir, const string& code_path) {
+  // a supported language must have version command configured
+  if (get_config_path(etc_dir, code_path, ENV_VERSION EXT_CMD_LIST, true).empty()) {
+    return false;
+  } else {
+    return true;
+  }
+}
+
 static double to_number(const string& str) {
   double v = 0;
   sscanf(str.c_str(), "%lg", &v);
@@ -912,6 +925,7 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     options.skip_checker = false;
     options.keep_stdout = false;
     options.keep_stderr = false;
+    options.direct_mode = false;
     current_case.checker_limit = { 5, 10, 1 << 30, 1 << 30 };
     current_case.runtime_limit = { 1, 3, 1 << 26 /* 64M mem */, 1 << 25 /* 32M output */ };
     debug_level = 0;
@@ -932,7 +946,18 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     } else if (strncmp("-", argv[i], 1) == 0) {
       option = argv[i] + 1;
     } else {
-      fatal("`%s` is not a valid option. Use `--help` for more information", argv[i]);
+      // check "direct mode"
+      option = argv[i];
+      if (options.user_code_path.empty() && i == argc - 1 && is_language_supported(options.etc_dir, option) && options.cases.size() <= 1 && !options.skip_checker && options.checker_code_path.empty()) {
+        options.user_code_path = option;
+        options.skip_checker = true;
+        options.direct_mode = true;
+        options.keep_stdout = true;
+        options.keep_stderr = true;
+        continue;
+      } else {
+        fatal("`%s` is not a valid option. Use `--help` for more information", argv[i]);
+      }
     }
 
     if (option == "user-code" || option == "u") {
@@ -1361,15 +1386,6 @@ static map<string, string> get_mappings(const string& src_name, const string& ex
   return mappings;
 }
 
-static bool is_language_supported(const string& etc_dir, const string& code_path) {
-  // a supported language must have version command configured
-  if (get_config_path(etc_dir, code_path, ENV_VERSION EXT_CMD_LIST, true).empty()) {
-    return false;
-  } else {
-    return true;
-  }
-}
-
 static CompileResult compile_code(const string& etc_dir, const string& cache_dir, const string& code_path, const Limit& limit, const string& subdir = SUBDIR_USER_CODE) {
   log_debug("compile_code: %s", code_path.c_str());
 
@@ -1723,6 +1739,31 @@ static j::value run_testcases(const Options& opts) {
   return j::value(results);
 }
 
+static void print_with_color(const string& content, int color, FILE *fp = stderr) {
+  if (content.empty()) return;
+
+  term::set(term::attr::RESET, color, fp);
+  fprintf(fp, "%s", content.c_str());
+  if (content[content.length() - 1] != '\n') fprintf(fp, "\n");
+  term::set(term::attr::RESET, fp);
+}
+
+static void print_final_result(const Options& opts, const j::value& jv) {
+  if (opts.direct_mode) {
+    // not checking all "contains()" here because direct-mode is not that serious
+    string compiler_log = jv.get("compilation").get("log").to_str();
+    print_with_color(compiler_log, term::fg::YELLOW);
+
+    if (jv.contains("testcases")) {
+      const auto& test_result = jv.get("testcases").get(0);
+      printf("%s", test_result.get("stdout").to_str().c_str());
+      print_with_color(test_result.get("stderr").to_str(), term::fg::RED);
+    }
+  } else {
+    printf("%s", jv.serialize(opts.pretty_print).c_str());
+  }
+}
+
 int main(int argc, char const *argv[]) {
   if (argc == 1) print_usage();
 
@@ -1752,7 +1793,6 @@ int main(int argc, char const *argv[]) {
     jo["testcases"] = results;
   }
 
-  // final result
-  printf("%s", j::value(jo).serialize(opts.pretty_print).c_str());
+  print_final_result(opts, j::value(jo));
   cleanup_exit(0);
 }
