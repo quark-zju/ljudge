@@ -3,9 +3,8 @@
 /etc(/alternatives(/.*)?)?
 /etc/ld\.so\.(cache|conf(.*)?)
 /tmp
-# java needs /proc/self/exe to know its path, and other proc stuff.
-/proc(/self|/[0-9]*|/cpuinfo)?
-/proc/[0-9]*/(exe|cwd)
+# java needs /proc/self/exe to know its path
+/proc
 # java needs jvm.cfg, whcih is in /etc
 /etc/java.*
 # Note: will NOT work if /usr/bin/java is a shell script.
