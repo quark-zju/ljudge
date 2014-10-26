@@ -475,7 +475,14 @@ static void ensure_system(const string& cmd) {
   if (ret != 0) fatal("failed to run %s", cmd.c_str());
 }
 
-static string prepare_chroot(const string& etc_dir, const string& code_path, const string& env, const string& base_dir) {
+// the directory for lrun and filterefs exchanging /proc information
+static string prepare_ext_proc_path(const string& cache_dir) {
+  string path = fs::join(cache_dir, "proc");
+  if (!fs::is_accessible(path)) fs::mkdir_p(path);
+  return path;
+}
+
+static string prepare_chroot(const string& etc_dir, const string& code_path, const string& env, const string& base_dir, const string& ext_proc_path = "") {
   string readable_config = get_config_path(etc_dir, code_path, format("%s%s", env, EXT_FS_REGEX));
   log_debug("prepare_chroot: %s", readable_config.c_str());
 
@@ -504,11 +511,18 @@ static string prepare_chroot(const string& etc_dir, const string& code_path, con
     }
 
     string cmd = format("filterefs %s -o allow_other,nonempty", shell_escape(dest));
+    if (!ext_proc_path.empty()) {
+      cmd += format(" --forward-cg-proc %s", shell_escape(ext_proc_path));
+    }
     if (!readable_config.empty()) {
       cmd += format(" --readable-config %s ", shell_escape(readable_config));
     }
     if (!writable_config.empty()) {
       cmd += format(" --writable-config %s ", shell_escape(writable_config));
+    }
+    if (!readable_config.empty()) {
+      string comment = fs::join(fs::basename(fs::dirname(readable_config)), env);
+      cmd += format(" --comment %s ", comment);
     }
     ensure_system(cmd);
 
@@ -739,9 +753,9 @@ static void do_check() {
 
     string filterefs_help = check_output("filterefs --help 2>&1");
     print_checkpoint(
-        "filterefs supports \"re://\" config path",
-        filterefs_help.find("re://") != string::npos,
-        "Please upgrade filterefs to at least v0.3");
+        "filterefs supports --forward-cg-proc",
+        filterefs_help.find("--forward-cg-proc") != string::npos,
+        "Please upgrade filterefs to at least v0.5");
     if (!fs::is_accessible("/etc/fuse.conf")) {
       print_checkfail(
           "/etc/fuse.conf is not accessible",
@@ -1505,7 +1519,7 @@ static string prepare_dummy_passwd(const string& cache_dir) {
 static LrunResult run_code(const string& etc_dir, const string& cache_dir, const string& code_path, const Limit& limit, const string& stdin_path, const string& stdout_path, const string& stderr_path = DEV_NULL, const vector<string>& extra_lrun_args = vector<string>(), const string& env = ENV_RUN) {
   log_debug("run_code: %s", code_path.c_str());
 
-  string chroot_path = prepare_chroot(etc_dir, code_path, env, fs::join(cache_dir, SUBDIR_CHROOT));
+  string chroot_path = prepare_chroot(etc_dir, code_path, env, fs::join(cache_dir, SUBDIR_CHROOT), prepare_ext_proc_path(cache_dir));
   string exe_name = get_config_content(etc_dir, code_path, ENV_COMPILE EXT_EXE_NAME, DEFAULT_EXE_NAME);
   string dest = get_code_work_dir(cache_dir, code_path);
 
@@ -1525,6 +1539,7 @@ static LrunResult run_code(const string& etc_dir, const string& cache_dir, const
 
     LrunArgs lrun_args;
     lrun_args.append_default();
+    lrun_args.append("--mount-cg-proc", prepare_ext_proc_path(cache_dir));
     lrun_args.append("--chroot", chroot_path);
     lrun_args.append("--bindfs-ro", fs::join(chroot_path, "/tmp"), dest);
     // Hide real /etc/passwd (required by Python) on demand

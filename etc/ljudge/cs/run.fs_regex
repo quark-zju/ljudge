@@ -4,5 +4,5 @@
 /etc/ld\.so\.(cache|conf(.*)?)
 /tmp
 # mono requires /proc
-/proc
+/proc(/.*)?
 /usr/bin(/mono(-sgen)?)?
