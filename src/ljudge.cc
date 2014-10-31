@@ -398,7 +398,7 @@ static L filter_user_lrun_args(const L& items) {
       continue;
     }
     if (item == "--syscalls" || item == "--domainname" || item == "--hostname" || item == "--ostype" \
-        || item == "--osrelease" || item == "--osversion" || item == "--proc-skip-chmod") {
+        || item == "--osrelease" || item == "--osversion") {
       next_safe = 1;
     } else {
       log_info("lrun arg '%s' is unsafe, dropping it and following args", item.c_str());
