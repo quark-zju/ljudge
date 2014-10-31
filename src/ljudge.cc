@@ -479,9 +479,9 @@ static string prepare_chroot(const string& etc_dir, const string& code_path, con
   string readable_config = get_config_path(etc_dir, code_path, format("%s%s", env, EXT_FS_REGEX));
   log_debug("prepare_chroot: %s", readable_config.c_str());
 
-  // we need to mount --bind foo /tmp in all cases. so /tmp should be writable for older lrun versions.
-  // otherwise lrun --bindfs permission check will fail.
-  string writable_config = "re:///tmp";
+  // previously it's "re:///tmp" because lrun --bindfs checks write permission and we always bind to "/tmp".
+  // newer lrun does not require write permission so it could be empty.
+  string writable_config = "";
 
   string content = "";
   if (!readable_config.empty()) content += format("r%s", fs::read(readable_config));
