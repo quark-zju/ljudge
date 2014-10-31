@@ -64,10 +64,10 @@ namespace j = picojson;
 #define EXT_CMD_LIST ".cmd_list"
 #define EXT_EXE_NAME ".exe_name"
 #define EXT_SRC_NAME ".src_name"
+#define EXT_OPT_FAKE_PASSWD "fake_passwd"
 #define EXT_NAME ".name"
 
 // config file names which are options
-#define OPTION_KEY_FAKE_ETC_PASSWD "option.fake_passwd"
 #define OPTION_VALUE_TRUE "true"
 #define OPTION_VALUE_FALSE "false"
 
@@ -1395,6 +1395,18 @@ static map<string, string> get_mappings(const string& src_name, const string& ex
   return mappings;
 }
 
+static string prepare_dummy_passwd(const string& cache_dir) {
+  string path = fs::join(cache_dir, format("tmp/etc/passwd-%d", (int)getuid()));
+  string content = format("nobody:%d:%d::/tmp:/bin/false\n", (int)getuid(), (int)getgid());
+  if (!fs::exists(path) || fs::read(path) != content) {
+    fs::mkdir_p(fs::dirname(path));
+    fs::touch(path);
+    fs::ScopedFileLock lock(path);
+    fs::write(path, content.c_str());
+  }
+  return path;
+}
+
 static CompileResult compile_code(const string& etc_dir, const string& cache_dir, const string& code_path, const Limit& limit, const string& subdir = SUBDIR_USER_CODE) {
   log_debug("compile_code: %s", code_path.c_str());
 
@@ -1452,6 +1464,11 @@ static CompileResult compile_code(const string& etc_dir, const string& cache_dir
     map<string, string> mappings = get_mappings(src_name, exe_name, dest);
     lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, ENV_COMPILE EXT_LRUN_ARGS), mappings)));
     lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, ENV_EXTRA EXT_LRUN_ARGS), mappings)));
+    // Hide real /etc/passwd (required by Python) on demand
+    if (fs::exists(fs::join(chroot_path, ETC_PASSWD)) && get_config_content(etc_dir, code_path, format("%s%s", ENV_COMPILE, EXT_OPT_FAKE_PASSWD), OPTION_VALUE_TRUE) == OPTION_VALUE_TRUE) {
+      string passwd_path = prepare_dummy_passwd(cache_dir);
+      lrun_args.append("--bindfs-ro", fs::join(chroot_path, ETC_PASSWD), passwd_path);
+    }
     lrun_args.append("--");
     lrun_args.append(escape_list(compile_cmd, mappings));
 
@@ -1494,18 +1511,6 @@ static CompileResult compile_code(const string& etc_dir, const string& cache_dir
   return result;
 }
 
-static string prepare_dummy_passwd(const string& cache_dir) {
-  string path = fs::join(cache_dir, format("tmp/etc/passwd-%d", (int)getuid()));
-  string content = format("nobody:%d:%d::/tmp:/bin/false\n", (int)getuid(), (int)getgid());
-  if (!fs::exists(path) || fs::read(path) != content) {
-    fs::mkdir_p(fs::dirname(path));
-    fs::touch(path);
-    fs::ScopedFileLock lock(path);
-    fs::write(path, content.c_str());
-  }
-  return path;
-}
-
 static LrunResult run_code(const string& etc_dir, const string& cache_dir, const string& code_path, const Limit& limit, const string& stdin_path, const string& stdout_path, const string& stderr_path = DEV_NULL, const vector<string>& extra_lrun_args = vector<string>(), const string& env = ENV_RUN) {
   log_debug("run_code: %s", code_path.c_str());
 
@@ -1532,7 +1537,7 @@ static LrunResult run_code(const string& etc_dir, const string& cache_dir, const
     lrun_args.append("--chroot", chroot_path);
     lrun_args.append("--bindfs-ro", fs::join(chroot_path, "/tmp"), dest);
     // Hide real /etc/passwd (required by Python) on demand
-    if (fs::exists(fs::join(chroot_path, ETC_PASSWD)) && get_config_content(etc_dir, code_path, OPTION_KEY_FAKE_ETC_PASSWD, OPTION_VALUE_TRUE) == OPTION_VALUE_TRUE) {
+    if (fs::exists(fs::join(chroot_path, ETC_PASSWD)) && get_config_content(etc_dir, code_path, format("%s%s", ENV_COMPILE, EXT_OPT_FAKE_PASSWD), OPTION_VALUE_TRUE) == OPTION_VALUE_TRUE) {
       string passwd_path = prepare_dummy_passwd(cache_dir);
       lrun_args.append("--bindfs-ro", fs::join(chroot_path, ETC_PASSWD), passwd_path);
     }
