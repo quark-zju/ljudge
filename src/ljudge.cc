@@ -797,6 +797,12 @@ static void do_check() {
           "lrun will use a legacy method to run programes.\n"
           "Not a big deal. But upgrading kernel is recommended.", 'W');
     }
+
+    if (sysconf(_SC_ARG_MAX) < 4096) {
+      print_checkfail(
+          "Maximum length of arguments for a new process is too small.",
+          "Not a serious one. But upgrading kernel is recommended.", 'W');
+    }
   }
 
   cleanup_exit(0);
@@ -805,16 +811,16 @@ static void do_check() {
 // find something like a.b.c from a long string
 static string scan_version_string(const string& content) {
   string result;
-  bool current_is_version = false;
+  bool current_word_is_version = false;
   for (size_t i = 0; i < content.length(); ++i) {
     char c = content[i];
     if (c >= '0' && c <= '9') {
       result += c;
-      current_is_version = true;
+      current_word_is_version = true;
     } else if (c == '.') {
-      if (current_is_version) result += c;
+      if (current_word_is_version) result += c;
     } else {
-      if (current_is_version) {
+      if (current_word_is_version) {
         // exiting version, do check
         // remove tailing dot
         if (result.length() > 0 && result[result.length() - 1] == '.') result = result.substr(0, result.length() - 1);
@@ -822,7 +828,7 @@ static string scan_version_string(const string& content) {
         // no '.', not a version string
         result = "";
       }
-      current_is_version = false;
+      current_word_is_version = false;
     }
   }
   return result;
