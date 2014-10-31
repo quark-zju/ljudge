@@ -510,6 +510,10 @@ static string prepare_chroot(const string& etc_dir, const string& code_path, con
     if (!writable_config.empty()) {
       cmd += format(" --writable-config %s ", shell_escape(writable_config));
     }
+    if (!readable_config.empty()) {
+      string comment = fs::join(fs::basename(fs::dirname(readable_config)), env);
+      cmd += format(" --comment %s ", comment);
+    }
     ensure_system(cmd);
 
     // wait 2s until mount finishes
