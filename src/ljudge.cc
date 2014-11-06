@@ -1543,7 +1543,18 @@ static CompileResult compile_code(const string& etc_dir, const string& cache_dir
   return result;
 }
 
-static LrunResult run_code(const string& etc_dir, const string& cache_dir, const string& code_path, const Limit& limit, const string& stdin_path, const string& stdout_path, const string& stderr_path = DEV_NULL, const vector<string>& extra_lrun_args = vector<string>(), const string& env = ENV_RUN) {
+static LrunResult run_code(
+    const string& etc_dir,
+    const string& cache_dir,
+    const string& code_path,
+    const Limit& limit,
+    const string& stdin_path,
+    const string& stdout_path,
+    const string& stderr_path = DEV_NULL,
+    const vector<string>& extra_lrun_args = vector<string>(),
+    const string& env = ENV_RUN,
+    const vector<string>& extra_argv = vector<string>()
+) {
   log_debug("run_code: %s", code_path.c_str());
 
   string chroot_path = prepare_chroot(etc_dir, code_path, env, fs::join(cache_dir, SUBDIR_CHROOT));
@@ -1575,6 +1586,7 @@ static LrunResult run_code(const string& etc_dir, const string& cache_dir, const
     lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, ENV_EXTRA EXT_LRUN_ARGS), mappings)));
     lrun_args.append("--");
     lrun_args.append(escape_list(run_cmd, mappings));
+    lrun_args.append(escape_list(extra_argv, mappings));
 
     LrunResult run_result = lrun(lrun_args, stdin_path, stdout_path, stderr_path);
 
@@ -1661,7 +1673,10 @@ static void run_custom_checker(j::object& result, const string& etc_dir, const s
   LrunResult lrun_result;
   {
     fs::ScopedFileLock lock(output_path);
-    lrun_result = run_code(etc_dir, cache_dir, checker_code_path, testcase.checker_limit, testcase.input_path, output_path, output_path /* stderr */, lrun_args, ENV_CHECK);
+    // the checker needs argv[1], which is "user_output"
+    vector<string> checker_argv;
+    checker_argv.push_back("user_output");
+    lrun_result = run_code(etc_dir, cache_dir, checker_code_path, testcase.checker_limit, testcase.input_path, output_path, output_path /* stderr */, lrun_args, ENV_CHECK, checker_argv);
     checker_output = fs::nread(output_path, TRUNC_LOG);
   }
 
