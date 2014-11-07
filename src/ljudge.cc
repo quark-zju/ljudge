@@ -593,7 +593,7 @@ static void print_usage() {
       "Available options: (put these before the first `--input`)\n"
       "  ljudge [--etc-dir path] [--cache-dir path]\n"
       "         [--keep-stdout] [--keep-stderr]\n"
-      "         [--threads n] [--min-threads n]\n"
+      "         [--threads n]\n"
       "         [--max-cpu-time seconds] [--max-real-time seconds]\n"
       "         [--max-memory byes] [--max-output bytes]\n"
       "         [--max-checker-cpu-time seconds] [--max-checker-real-time seconds]\n"
