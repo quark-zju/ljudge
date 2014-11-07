@@ -128,8 +128,7 @@ struct Options {
   bool keep_stdout;
   bool keep_stderr;
   bool direct_mode;  // if true, just run the program and prints the result
-  int nthread;       // how many testcases can run in parallel. auto detect from lrun process count if not set or is 0
-  int min_nthread;   // lower bound of nthread, can not < 1
+  unsigned int nthread;  // how many testcases can run in parallel. default is cpu cores
 };
 
 struct LrunArgs : public vector<string> {
@@ -947,6 +946,12 @@ static double to_number(const string& str) {
   return v;
 }
 
+static unsigned int get_cpu_core_count() {
+  static unsigned int result = 0;
+  if (result == 0) result = sysconf(_SC_NPROCESSORS_ONLN);
+  return result;
+}
+
 
 /**
  * --user-code path-to-user-code
@@ -982,8 +987,7 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     options.keep_stdout = false;
     options.keep_stderr = false;
     options.direct_mode = false;
-    options.nthread = 0; // auto detect
-    options.min_nthread = 1;
+    options.nthread = get_cpu_core_count();
     current_case.checker_limit = { 5, 10, 1 << 30, 1 << 30 };
     current_case.runtime_limit = { 1, 3, 1 << 26 /* 64M mem */, 1 << 25 /* 32M output */ };
     debug_level = 0;
@@ -1126,9 +1130,6 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     } else if (option == "threads" || option == "jobs" || option == "j") {
       REQUIRE_NARGV(1);
       options.nthread = NEXT_NUMBER_ARG;
-    } else if (option == "min-threads") {
-      REQUIRE_NARGV(1);
-      options.min_nthread = NEXT_NUMBER_ARG;
     } else {
       fatal("'%s' is not a valid option", argv[i]);
     }
@@ -1201,12 +1202,8 @@ static void check_options(const Options& options) {
     errors.push_back("Running ljudge using root is forbidden");
   }
 
-  if (options.nthread < 0) {
-    errors.push_back("--threads cannot < 0");
-  }
-
-  if (options.min_nthread < 1) {
-    errors.push_back("--min-threads cannot < 1");
+  if (options.nthread < 1) {
+    errors.push_back("--threads cannot < 1");
   }
 
   if (errors.size() > 0) {
@@ -1808,61 +1805,15 @@ static j::object run_testcase(const string& etc_dir, const string& cache_dir, co
   return result;
 }
 
-static unsigned int count_lrun_processes() {
-  // best-effort to find out how many lrun is running, helping
-  // to decide how many testcases should run in parallel.
-  // scaning /proc is slow, about 0.002 to 0.005s overhead,
-  // but acceptable.
-  // the implementation is chosen because it's simple and
-  // stateless, compared to other possible solutions like
-  // shm with a pid gc logic, or file locks which requires
-  // the number of files equals to cpu core number.
-  DIR *dir = opendir("/proc");
-  if (!dir) return 0;
-
-  unsigned int c = 0;
-  for (struct dirent *ent; (ent = readdir(dir));) {
-    if (*ent->d_name < '0' || *ent->d_name > '9') continue;
-    // read cmdline instead of readlink
-    char buf[sizeof(pid_t) * 3 + sizeof("/cmdline")];
-    snprintf(buf, sizeof buf, "%s/cmdline", ent->d_name);
-    int ofd = openat(dirfd(dir), buf, O_RDONLY);
-    if (ofd < 0) continue;
-    char name[sizeof("lrun")];
-    read(ofd, name, strlen("lrun"));
-    if (strncmp(name, "lrun", strlen("lrun")) == 0) {
-      ++c;
-    }
-  }
-  closedir(dir);
-  // each lrun forks a dummy init
-  return c / 2;
-}
-
-static unsigned int get_cpu_core_count() {
-  static unsigned int result = 0;
-  if (result == 0) result = sysconf(_SC_NPROCESSORS_ONLN);
-  return result;
-}
-
-static unsigned int get_nthread(const Options& opts) {
-  int v = opts.nthread;
-  // if the user don't provide a nthread value, guess one
-  if (v == 0) v = (int)get_cpu_core_count() - (int)count_lrun_processes();
-  if (v < opts.min_nthread) v = opts.min_nthread;
-  return v;
-}
-
 static j::value run_testcases(const Options& opts) {
-  unsigned int nthread = get_nthread(opts);
-  bool need_sem = (nthread > 1 && nthread < get_cpu_core_count());
-  log_debug("nthread = %u", nthread);
+  bool need_sem = (opts.nthread > 1 && opts.nthread < get_cpu_core_count());
+  log_debug("nthread = %u", opts.nthread);
   sem_t sem_testcase_runner;
-  if (need_sem) sem_init(&sem_testcase_runner, 0 /* not shared */, nthread);
+  if (need_sem) sem_init(&sem_testcase_runner, 0 /* not shared */, opts.nthread);
 
   vector<j::value> results;
   results.resize(opts.cases.size());
-  #pragma omp parallel for if (nthread > 1)
+  #pragma omp parallel for if (opts.nthread > 1)
   for (int i = 0; i < (int)opts.cases.size(); ++i) {
     if (need_sem) sem_wait(&sem_testcase_runner);
     j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);

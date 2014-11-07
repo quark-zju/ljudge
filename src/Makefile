@@ -22,7 +22,7 @@ clean:
 	-rm -f *.o **/*.o ljudge
 
 install: ljudge
-	install -D -m0755 -oroot -groot $< $(PREFIX)/bin/ljudge
+	install -D -m0755 -oroot -groot -s $< $(PREFIX)/bin/ljudge
 
 cog: ljudge.cc
 	cog.py -r $^
