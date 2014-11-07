@@ -123,7 +123,7 @@ struct Options {
   vector<Testcase> cases;
   map<string, string> envs;
   bool pretty_print;
-  bool skip_checker; // if true, do not run can checker, but capture user program's output
+  bool skip_checker;  // if true, do not run can checker, but capture user program's output
   bool keep_stdout;
   bool keep_stderr;
   bool direct_mode;  // if true, just run the program and prints the result
