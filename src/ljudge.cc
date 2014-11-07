@@ -1414,8 +1414,8 @@ static string get_code_work_dir(const string& cache_dir, const string& code_path
   static map<string, string> cache;
   string key = code_path + "///" + cache_dir;
   if (cache.count(key)) return cache[key];
-  // for checker, we only care about its content, do not hash its path
-  string code_sha1 = (subdir == SUBDIR_CHECKER ? sha1(fs::read(code_path)) : sha1(code_path + "|" + fs::read(code_path)));
+  // for checker, we'd like to get a consistent hash result from its content. but for user code, random hash is okay.
+  string code_sha1 = (subdir == SUBDIR_CHECKER ? sha1(fs::read(code_path)) : get_random_hash());
   string dest = fs::join(cache_dir, format("%s/%s/%s", subdir, code_sha1.substr(0, 2), code_sha1.substr(2)));
   cache[key] = dest;
   return dest;
@@ -1789,9 +1789,11 @@ static j::object run_testcase(const string& etc_dir, const string& cache_dir, co
 
 static j::value run_testcases(const Options& opts) {
   vector<j::value> results;
+  results.resize(opts.cases.size());
+  #pragma omp parallel for
   for (int i = 0; i < (int)opts.cases.size(); ++i) {
     j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
-    results.push_back(j::value(testcase_result));
+    results[i] = j::value(testcase_result);
   }
   return j::value(results);
 }
@@ -1830,7 +1832,8 @@ int main(int argc, char const *argv[]) {
   j::object jo;
   bool compiled = true;
 
-  srand(time(0));
+  // time(0) is only accurate to seconds, which is not enough, add pid randomness
+  srand((time(0) << sizeof(pid_t)) | getpid());
 
   { // precompile user code
     CompileResult compile_result = compile_code(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.compiler_limit);
