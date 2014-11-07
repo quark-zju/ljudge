@@ -1,6 +1,6 @@
 /(dev|lib|lib64|lib32)(/.*)?
 /usr(/lib(32|64)?(/.*)?)?
-/etc(/alternatives(/.*)?)?
+/etc(/alternatives(/java.*)?)?
 /etc/ld\.so\.(cache|conf(.*)?)
 /tmp
 # java needs /proc/self/exe to know its path
@@ -12,4 +12,6 @@
 #
 #   unline /usr/bin/java
 #   sudo ln -s $JAVA_HOME/bin/java /usr/bin/java
+#
+# Note: java 6 needs execve. Use java 7 instead.
 /usr(/bin(/java)?)?
