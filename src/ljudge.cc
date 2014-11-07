@@ -8,7 +8,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <cctype>
-#include <dirent.h>
 #include <fcntl.h>
 #include <list>
 #include <map>
