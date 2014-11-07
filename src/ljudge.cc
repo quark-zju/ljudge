@@ -1806,7 +1806,7 @@ static j::object run_testcase(const string& etc_dir, const string& cache_dir, co
 }
 
 static j::value run_testcases(const Options& opts) {
-  bool need_sem = (opts.nthread > 1 && opts.nthread < get_cpu_core_count());
+  bool need_sem = (opts.nthread > 1 && opts.nthread < get_cpu_core_count() && opts.cases.size() > 1);
   log_debug("nthread = %u", opts.nthread);
   sem_t sem_testcase_runner;
   if (need_sem) sem_init(&sem_testcase_runner, 0 /* not shared */, opts.nthread);
