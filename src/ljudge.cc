@@ -1985,7 +1985,8 @@ int main(int argc, char const *argv[]) {
   bool compiled = true;
 
   // time(0) is only accurate to seconds, which is not enough, add some pid randomness
-  srand((time(0) << 4) | getpid());
+  // srand((time(0) << 4) | getpid());
+  srand(0);
 
   { // precompile user code
     string dest = get_code_work_dir(get_process_tmp_dir(opts.cache_dir), opts.user_code_path);
