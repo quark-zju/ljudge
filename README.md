@@ -16,7 +16,7 @@ wget https://github.com/quark-zju/lrun/releases/download/v1.0.0/lrun_1.0.0_amd64
 sudo apt-get install fuse libfuse2 libseccomp2
 sudo dpkg -i filterefs_0.5.0_amd64.deb lrun_1.0.0_amd64.deb
 
-# following steps are required to pass ljudge check
+# following steps are required to pass ljudge --check
 sudo gpasswd -a $USER fuse
 sudo gpasswd -a $USER lrun
 sudo sed -i 's/#user_allow_other/user_allow_other/' /etc/fuse.conf
@@ -88,7 +88,7 @@ A: Yes. ljudge runs testcases in parallel, with thread number = cpu core number 
 
 A: The checker is used to compare the output of the user program and the standard output. It will return one of ACCEPTED, WRONG\_ANSWER, PRESENTATION\_ERROR. The default checker works in these steps, given both outputs:
 
-1. Ignores the ending `\\n` of the last non-empty line of both output files.
+1. Ignores the ending `\n` of the last non-empty line of both output files.
 2. If they are identical, return ACCEPTED.
 3. Remove all blank characters from both outputs.
 4. If they are identical now, return PRESENTATION\_ERROR.
