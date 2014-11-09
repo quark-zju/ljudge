@@ -1,5 +1,5 @@
 CXX?=g++
-CXXFLAGS?=-Wall -Os -g -std=c++11
+CXXFLAGS?=-Wall -Os -g
 PREFIX?=/usr/local
 
 ifneq ($(NDEBUG),)
@@ -16,7 +16,7 @@ ljudge: ljudge.o sha1.o fs.o term.o
 	$(CXX) -pthread -fopenmp -ldl -o $@ $^
 
 %.o: %.cc
-	$(CXX) -pthread -fopenmp -c -o $@ $(CXXFLAGS) $<
+	$(CXX) -pthread -std=c++11 -fopenmp -c -o $@ $(CXXFLAGS) $<
 
 clean:
 	-rm -f *.o **/*.o ljudge
