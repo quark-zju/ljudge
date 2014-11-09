@@ -1,0 +1,16 @@
+Source: ljudge
+Section: utils
+Priority: optional
+Maintainer: Jun Wu <quark@lihdd.net>
+Standards-Version: 3.9.3
+Build-Depends: debhelper (>= 8)
+Homepage: https://github.com/quark-zju/ljudge
+
+Package: ljudge
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, lrun (>= 1.0), filterefs (>= 0.5)
+Description: Backend tool for an online judge system
+ ljudge is a command line tool to compile, run, check its output
+ and generate a JSON report.
+ .
+ It is designed to be the backend tool for an online judge system.

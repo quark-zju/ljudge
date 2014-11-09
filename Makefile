@@ -6,3 +6,6 @@ install:
 
 clean:
 	make -C src clean
+
+deb:
+	debuild -i -us -uc -b

@@ -1,0 +1,5 @@
+ljudge (0.3.0) unstable; urgency=low
+
+  * Initial debian package release.
+
+ -- Jun Wu <quark@lihdd.net>  Sun, 09 Nov 2014 15:40:00 +0800
