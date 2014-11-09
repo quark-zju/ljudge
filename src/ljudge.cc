@@ -1483,7 +1483,7 @@ static LrunResult lrun(
       for (int i = 0; i < (int)args.size(); ++i) {
         if (args[i] == "--max-real-time") {
           log_debug("overwriting max-real-time");
-          args[i + 1] = "9000000";
+          args[i + 1] = "9000000";  // a enough large value
         } else if (args[i] == "--") {
           args[i] = "--debug";
           log_debug("overwriting cmd to %s", cmd.c_str());
