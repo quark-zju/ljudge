@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <list>
 #include <map>
+#include <mutex>
 #include <omp.h>
 #include <string>
 #include <sys/prctl.h>
@@ -391,7 +392,10 @@ static string get_src_name(const string& etc_dir, const string& code_path) {
   return get_config_content(etc_dir, code_path, ENV_COMPILE EXT_SRC_NAME, fallback);
 }
 
+std::mutex dummy_passwd_mutex;
+
 static string prepare_dummy_passwd(const string& cache_dir) {
+  std::lock_guard<std::mutex> mutex_lock(dummy_passwd_mutex);
   string path = fs::join(cache_dir, format("tmp/etc/passwd-%d", (int)getuid()));
   string content = format("nobody:%d:%d::/tmp:/bin/false\n", (int)getuid(), (int)getgid());
   if (!fs::exists(path) || fs::read(path) != content) {
@@ -521,9 +525,13 @@ static void ensure_system(const string& cmd) {
   if (ret != 0) fatal("failed to run %s", cmd.c_str());
 }
 
+std::mutex chroot_mutex;
+
 static string prepare_chroot(const string& etc_dir, const string& code_path, const string& env, const string& base_dir) {
+  std::lock_guard<std::mutex> mutex_lock(chroot_mutex);
+
   enforce_mkdir_p(base_dir);
-  fs::ScopedFileLock base_lock(base_dir);
+  fs::ScopedFileLock base_dir_lock(base_dir);
 
   string readable_config = get_config_path(etc_dir, code_path, format("%s%s", env, EXT_FS_REGEX));
   log_debug("prepare_chroot: %s", readable_config.c_str());
