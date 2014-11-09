@@ -518,6 +518,11 @@ static void ensure_system(const string& cmd) {
 }
 
 static string prepare_chroot(const string& etc_dir, const string& code_path, const string& env, const string& base_dir) {
+  if (!fs::is_accessible(base_dir, F_OK)) {
+    if (fs::mkdir_p(base_dir) < 0) fatal("cannot mkdir: %s", base_dir.c_str());
+  }
+  fs::ScopedFileLock base_lock(base_dir);
+
   string readable_config = get_config_path(etc_dir, code_path, format("%s%s", env, EXT_FS_REGEX));
   log_debug("prepare_chroot: %s", readable_config.c_str());
 
@@ -540,7 +545,8 @@ static string prepare_chroot(const string& etc_dir, const string& code_path, con
   }
 
   do {
-    fs::ScopedFileLock lock(dest);
+    // since we have a bigger lock outside
+    // fs::ScopedFileLock lock(dest);
 
     if (fs::is_mounted(dest)) {
       log_debug("already mounted: %s. use it directly", dest.c_str());
