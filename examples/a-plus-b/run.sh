@@ -25,7 +25,9 @@ for i in $LIST; do
     echo >> $ERROR_LOG
     # notify user
     echo1 'ERROR' "$RESULT"
+    echo
     echo 'To re-run: ljudge -u '$src' -i 1.in -o 1.out -i 2.in -o 2.out --debug'
+    echo
   else
     echo OKAY
   fi
