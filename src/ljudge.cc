@@ -1090,6 +1090,33 @@ static double to_number(const string& str) {
   return v;
 }
 
+long long parse_bytes(const string& str) {
+    long long result = 1;
+    // accept str which ends with 'k', 'kb', 'm', 'M', etc.
+    int pos = str.length() - 1;
+    if (pos > 0 && (str[pos] == 'b' || str[pos] == 'B')) --pos;
+    if (pos > 0) {
+        switch (str[pos]) {
+            case 'g': case 'G':
+                result *= 1024;
+            case 'm': case 'M':
+                result *= 1024;
+            case 'k': case 'K':
+                result *= 1024;
+        }
+    }
+    if (result == 1) {
+        // read as long long
+        sscanf(str.c_str(), "%lld", &result);
+    } else {
+        // read as double so that the user can use things like 0.5mb
+        double v = 0;
+        sscanf(str.c_str(), "%lf", &v);
+        result *= v;
+    }
+    return result;
+}
+
 
 /**
  * --user-code path-to-user-code
@@ -1192,11 +1219,12 @@ static Options parse_cli_options(int argc, const char *argv[]) {
             '''
             } else if (option == "max-%s%s") {
               REQUIRE_NARGV(1);
-              %s.%s = NEXT_NUMBER_ARG;
+              %s.%s = %s;
             ''' % (prefix,
                    opt.replace('_', '-'),
                    var_name,
-                   opt),
+                   opt,
+                   (opt in ['memory', 'output']) and 'parse_bytes(NEXT_STRING_ARG)' or 'NEXT_NUMBER_ARG'),
             trimblanklines=True)
     ]]] */
     } else if (option == "max-cpu-time") {
@@ -1207,10 +1235,10 @@ static Options parse_cli_options(int argc, const char *argv[]) {
       current_case.runtime_limit.real_time = NEXT_NUMBER_ARG;
     } else if (option == "max-output") {
       REQUIRE_NARGV(1);
-      current_case.runtime_limit.output = NEXT_NUMBER_ARG;
+      current_case.runtime_limit.output = parse_bytes(NEXT_STRING_ARG);
     } else if (option == "max-memory") {
       REQUIRE_NARGV(1);
-      current_case.runtime_limit.memory = NEXT_NUMBER_ARG;
+      current_case.runtime_limit.memory = parse_bytes(NEXT_STRING_ARG);
     } else if (option == "max-compiler-cpu-time") {
       REQUIRE_NARGV(1);
       options.compiler_limit.cpu_time = NEXT_NUMBER_ARG;
@@ -1219,10 +1247,10 @@ static Options parse_cli_options(int argc, const char *argv[]) {
       options.compiler_limit.real_time = NEXT_NUMBER_ARG;
     } else if (option == "max-compiler-output") {
       REQUIRE_NARGV(1);
-      options.compiler_limit.output = NEXT_NUMBER_ARG;
+      options.compiler_limit.output = parse_bytes(NEXT_STRING_ARG);
     } else if (option == "max-compiler-memory") {
       REQUIRE_NARGV(1);
-      options.compiler_limit.memory = NEXT_NUMBER_ARG;
+      options.compiler_limit.memory = parse_bytes(NEXT_STRING_ARG);
     } else if (option == "max-checker-cpu-time") {
       REQUIRE_NARGV(1);
       current_case.checker_limit.cpu_time = NEXT_NUMBER_ARG;
@@ -1231,10 +1259,10 @@ static Options parse_cli_options(int argc, const char *argv[]) {
       current_case.checker_limit.real_time = NEXT_NUMBER_ARG;
     } else if (option == "max-checker-output") {
       REQUIRE_NARGV(1);
-      current_case.checker_limit.output = NEXT_NUMBER_ARG;
+      current_case.checker_limit.output = parse_bytes(NEXT_STRING_ARG);
     } else if (option == "max-checker-memory") {
       REQUIRE_NARGV(1);
-      current_case.checker_limit.memory = NEXT_NUMBER_ARG;
+      current_case.checker_limit.memory = parse_bytes(NEXT_STRING_ARG);
     /* [[[end]]] */
     } else if (option == "etc-dir") {
       REQUIRE_NARGV(1);
