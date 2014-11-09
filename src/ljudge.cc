@@ -303,6 +303,10 @@ int cleanup_exit(int code) {
   exit(code);
 }
 
+void enforce_mkdir_p(const string& dir) {
+  if (fs::mkdir_p(dir) < 0) fatal("cannot mkdir: %s", dir.c_str());
+}
+
 
 /**
  * Example:
@@ -391,7 +395,7 @@ static string prepare_dummy_passwd(const string& cache_dir) {
   string path = fs::join(cache_dir, format("tmp/etc/passwd-%d", (int)getuid()));
   string content = format("nobody:%d:%d::/tmp:/bin/false\n", (int)getuid(), (int)getgid());
   if (!fs::exists(path) || fs::read(path) != content) {
-    fs::mkdir_p(fs::dirname(path));
+    enforce_mkdir_p(fs::dirname(path));
     fs::touch(path);
     fs::ScopedFileLock lock(path);
     fs::write(path, content.c_str());
@@ -518,9 +522,7 @@ static void ensure_system(const string& cmd) {
 }
 
 static string prepare_chroot(const string& etc_dir, const string& code_path, const string& env, const string& base_dir) {
-  if (!fs::is_accessible(base_dir, F_OK)) {
-    if (fs::mkdir_p(base_dir) < 0) fatal("cannot mkdir: %s", base_dir.c_str());
-  }
+  enforce_mkdir_p(base_dir);
   fs::ScopedFileLock base_lock(base_dir);
 
   string readable_config = get_config_path(etc_dir, code_path, format("%s%s", env, EXT_FS_REGEX));
@@ -540,9 +542,7 @@ static string prepare_chroot(const string& etc_dir, const string& code_path, con
     if (ret != 0) log_info("failed to umount %s", dest.c_str());
   }
 
-  if (!fs::is_accessible(dest, F_OK)) {
-    if (fs::mkdir_p(dest) < 0) fatal("cannot mkdir: %s", dest.c_str());
-  }
+  enforce_mkdir_p(dest);
 
   do {
     // since we have a bigger lock outside
@@ -1299,7 +1299,7 @@ static void check_path(std::vector<string>& errors, const string& path, bool is_
 static void check_options(const Options& options) {
   std::vector<string> errors;
 
-  fs::mkdir_p(options.cache_dir);
+  enforce_mkdir_p(options.cache_dir);
 
   check_path(errors, options.etc_dir, true, "--etc-dir");
   check_path(errors, options.cache_dir, true, "--cache-dir");
@@ -1557,7 +1557,7 @@ static string get_process_tmp_dir(const string& cache_dir) {
   static string result;
   if (result.empty()) {
     result = fs::join(cache_dir, SUBDIR_TEMP, format("%lu", (unsigned long)(getpid())));
-    if (fs::mkdir_p(result) < 0) fatal("can not prepare process temp directory %s", result.c_str());
+    enforce_mkdir_p(result);
     register_cleanup_path(result);
   }
   return result;
@@ -1580,7 +1580,7 @@ static string get_temp_file_path(const string& cache_dir, const string& prefix =
     string hash = get_random_hash(len);
     dest = fs::join(get_process_tmp_dir(cache_dir), prefix.empty() ? hash : format("%s-%s", prefix, hash));
   } while (fs::exists(dest));
-  if (fs::mkdir_p(fs::dirname(dest)) < 0) fatal("can not prepare directory for %s", dest.c_str());
+  enforce_mkdir_p(fs::dirname(dest));
   if (!fs::touch(dest)) fatal("can not prepare temp file %s", dest.c_str());
   // no more needed since it is inside process tmp dir
   // register_cleanup_path(dest);
@@ -1607,7 +1607,7 @@ static CompileResult compile_code(const string& etc_dir, const string& cache_dir
     return result;
   }
 
-  if (fs::mkdir_p(dest) < 0) fatal("can not mkdir: %s", dest.c_str());
+  enforce_mkdir_p(dest);
 
   do {
     fs::ScopedFileLock lock(dest);
