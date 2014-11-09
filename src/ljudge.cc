@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cctype>
+#include <dlfcn.h>
 #include <fcntl.h>
 #include <list>
 #include <map>
@@ -306,6 +307,11 @@ int cleanup_exit(int code) {
 
 void enforce_mkdir_p(const string& dir) {
   if (fs::mkdir_p(dir) < 0) fatal("cannot mkdir: %s", dir.c_str());
+}
+
+void load_libsegfault() {
+  void *libSegFault = dlopen("libSegFault.so", RTLD_NOW);
+  (void)libSegFault;
 }
 
 
@@ -1248,6 +1254,7 @@ static Options parse_cli_options(int argc, const char *argv[]) {
       print_compiler_versions(options, false /* only_present */);
     } else if (option == "debug") {
       debug_level = 10;  // show info, warn, error
+      load_libsegfault();
       options.keep_stdout = true;
       options.keep_stderr = true;
     } else if (option == "check") {

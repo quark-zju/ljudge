@@ -13,7 +13,7 @@ endif
 all: ljudge
 
 ljudge: ljudge.o sha1.o fs.o term.o
-	$(CXX) -pthread -fopenmp -o $@ $^
+	$(CXX) -pthread -fopenmp -ldl -o $@ $^
 
 %.o: %.cc
 	$(CXX) -pthread -fopenmp -c -o $@ $(CXXFLAGS) $<

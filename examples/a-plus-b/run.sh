@@ -16,10 +16,13 @@ for i in $LIST; do
   [ -e $src ] || continue
   echo -n $src': '
 
+  export SEGFAULT_USE_ALTSTACK=1
+  export SEGFAULT_OUTPUT_NAME=segfault.$i.$$.log
   RESULT=`ljudge --debug --keep-stdout --keep-stderr --user-code $src --testcase --input 1.in --output 1.out --testcase --input 2.in --output 2.out 2> $DEBUG_LOG | cat`
-  if [ -z "$RESULT" ] || (echo1 "$RESULT" | grep -qi ERROR) || (echo1 "$RESULT" | grep -qv ACCEPT); then
+  EXITCODE=$?
+  if [ "$EXITCODE" != 0 ] || [ -z "$RESULT" ] || (echo1 "$RESULT" | grep -qi ERROR) || (echo1 "$RESULT" | grep -qv ACCEPT); then
     # Log error
-    echo `date` 'Error running' $i 'test' >> $ERROR_LOG
+    echo `date` 'Error running' $i 'test (exit code ' $EXITCODE ')' >> $ERROR_LOG
     echo1 "$RESULT" >> $ERROR_LOG
     cat $DEBUG_LOG >> $ERROR_LOG
     echo >> $ERROR_LOG
