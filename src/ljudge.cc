@@ -1128,7 +1128,7 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     options.nthread = 0;
     current_case.checker_limit = { 5, 10, 1 << 30, 1 << 30 };
     current_case.runtime_limit = { 1, 3, 1 << 26 /* 64M mem */, 1 << 25 /* 32M output */ };
-    debug_level = 0;
+    debug_level = getenv("DEBUG") ? 10 : 0;
   }
 
 #define REQUIRE_NARGV(n) if (i + n >= argc) { \
