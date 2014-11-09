@@ -1507,6 +1507,11 @@ static LrunResult lrun(
 #endif
 
   pid_t pid = fork();
+  if (pid == -1) {
+    log_debug("failed to fork\n");
+    result.error = "cannot fork to run lrun";
+    return result;
+  }
   if (pid) {
     close(pipe_fd[1]);
 
