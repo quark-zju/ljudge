@@ -1,3 +1,4 @@
 *.o
 /src/ljudge
 node_modules
+*.log
