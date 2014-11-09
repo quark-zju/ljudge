@@ -223,7 +223,6 @@ struct LrunResult {
 struct CompileResult {
   string log;
   string error;
-  string work_dir;
   bool success;
 };
 
@@ -1546,27 +1545,37 @@ static LrunResult lrun(
   return result;
 }
 
-static string get_code_work_dir(const string& cache_dir, const string& code_path, const string& subdir = SUBDIR_USER_CODE) {
+static string get_process_tmp_dir(const string& cache_dir) {
+  static string result;
+  if (result.empty()) {
+    result = fs::join(cache_dir, SUBDIR_TEMP, format("%lu", (unsigned long)(getpid())));
+    if (fs::mkdir_p(result) < 0) fatal("can not prepare process temp directory %s", result.c_str());
+    register_cleanup_path(result);
+  }
+  return result;
+}
+
+static string get_code_work_dir(const string& base_dir, const string& code_path) {
   // assume code file doesn't change
   static map<string, string> cache;
-  string key = code_path + "///" + cache_dir;
+  string key = code_path + "///" + base_dir;
   if (cache.count(key)) return cache[key];
-  // for checker, we'd like to get a consistent hash result from its content. but for user code, random hash is okay.
-  string code_sha1 = (subdir == SUBDIR_CHECKER ? sha1(fs::read(code_path)) : get_random_hash());
-  string dest = fs::join(cache_dir, format("%s/%s/%s", subdir, code_sha1.substr(0, 2), code_sha1.substr(2)));
+  string code_sha1 = sha1(fs::read(code_path));
+  string dest = fs::join(base_dir, format("%s/%s", code_sha1.substr(0, 2), code_sha1.substr(2)));
   cache[key] = dest;
   return dest;
 }
 
-static string get_temp_file_path(const string& cache_dir, int len = 40) {
+static string get_temp_file_path(const string& cache_dir, const string& prefix = "", int len = 10) {
   string dest;
   do {
     string hash = get_random_hash(len);
-    dest = fs::join(cache_dir, format("%s/%s/%s", SUBDIR_TEMP, hash.substr(0, 2), hash.substr(2)));
+    dest = fs::join(get_process_tmp_dir(cache_dir), prefix.empty() ? hash : format("%s-%s", prefix, hash));
   } while (fs::exists(dest));
   if (fs::mkdir_p(fs::dirname(dest)) < 0) fatal("can not prepare directory for %s", dest.c_str());
   if (!fs::touch(dest)) fatal("can not prepare temp file %s", dest.c_str());
-  register_cleanup_path(dest);
+  // no more needed since it is inside process tmp dir
+  // register_cleanup_path(dest);
   return dest;
 }
 
@@ -1579,8 +1588,8 @@ static map<string, string> get_mappings(const string& src_name, const string& ex
   return mappings;
 }
 
-static CompileResult compile_code(const string& etc_dir, const string& cache_dir, const string& code_path, const Limit& limit, const string& subdir = SUBDIR_USER_CODE) {
-  log_debug("compile_code: %s", code_path.c_str());
+static CompileResult compile_code(const string& etc_dir, const string& cache_dir, const string& dest /* work dir */, const string& code_path, const Limit& limit) {
+  log_debug("compile_code: %s %s", code_path.c_str(), dest.c_str());
 
   CompileResult result;
   result.success = false;
@@ -1589,10 +1598,6 @@ static CompileResult compile_code(const string& etc_dir, const string& cache_dir
     result.error = format("Compiling `%s` is not supported. No appropriate config found.", fs::basename(code_path));
     return result;
   }
-
-  string dest = get_code_work_dir(cache_dir, code_path, subdir);
-
-  result.work_dir = dest;
 
   if (fs::mkdir_p(dest) < 0) fatal("can not mkdir: %s", dest.c_str());
 
@@ -1683,6 +1688,7 @@ static CompileResult compile_code(const string& etc_dir, const string& cache_dir
 static LrunResult run_code(
     const string& etc_dir,
     const string& cache_dir,
+    const string& dest,
     const string& code_path,
     const Limit& limit,
     const string& stdin_path,
@@ -1696,11 +1702,10 @@ static LrunResult run_code(
 
   string chroot_path = prepare_chroot(etc_dir, code_path, env, fs::join(cache_dir, SUBDIR_CHROOT));
   string exe_name = get_config_content(etc_dir, code_path, ENV_COMPILE EXT_EXE_NAME, DEFAULT_EXE_NAME);
-  string dest = get_code_work_dir(cache_dir, code_path);
 
   // assume it is precompiled
   {
-    // not locking here because it may slow down checker
+    // not locking here because the directory is read-only
     // fs::ScopedFileLock lock(dest);
     std::list<string> run_cmd = get_config_list(etc_dir, code_path, ENV_RUN EXT_CMD_LIST);
     if (run_cmd.empty()) {
@@ -1769,6 +1774,19 @@ static string get_full_path(const string& path) {
   return fs::join(get_current_dir_name(), path);
 }
 
+static void prepare_checker_mount_bind_files(const string& dest) {
+  // prepare files used for mount bind in checker work dir:
+  // - input: standard input
+  // - output: standard output
+  // - user_output: user output
+  // - user_code: user code
+
+  // lrun requires non-root users to use full path
+  fs::touch(fs::join(dest, "input"));
+  fs::touch(fs::join(dest, "output"));
+  fs::touch(fs::join(dest, "user_output"));
+  fs::touch(fs::join(dest, "user_code"));
+}
 
 static void run_custom_checker(j::object& result, const string& etc_dir, const string& cache_dir, const string& code_path, const string& checker_code_path, const map<string, string>& envs, const Testcase& testcase, const string& user_output_path) {
   log_debug("run_custom_checker: %s %s", testcase.output_path.c_str(), user_output_path.c_str());
@@ -1779,21 +1797,8 @@ static void run_custom_checker(j::object& result, const string& etc_dir, const s
   // - a file named argv[1] is user output file path
   // - stdin is standard input
 
-  // prepare a "tmp" directory which contains these files:
-  // - input: standard input
-  // - output: standard output
-  // - user_output: user output
-  // - user_code: user code
-  string work_dir = get_code_work_dir(cache_dir, checker_code_path, SUBDIR_CHECKER);
-  string output_path = get_temp_file_path(cache_dir);
 
-
-  // lrun requires non-root users to use full path
-  fs::touch(fs::join(work_dir, "input"));
-  fs::touch(fs::join(work_dir, "output"));
-  fs::touch(fs::join(work_dir, "user_output"));
-  fs::touch(fs::join(work_dir, "user_code"));
-
+  // extra lrun args
   LrunArgs lrun_args;
 
   lrun_args.append("--bindfs-ro", "$chroot/tmp/input", get_full_path(testcase.input_path));
@@ -1809,11 +1814,15 @@ static void run_custom_checker(j::object& result, const string& etc_dir, const s
   string checker_output;
   LrunResult lrun_result;
   {
+    string output_path = get_temp_file_path(cache_dir, "checker-out");
     fs::ScopedFileLock lock(output_path);
     // the checker needs argv[1], which is "user_output"
     vector<string> checker_argv;
     checker_argv.push_back("user_output");
-    lrun_result = run_code(etc_dir, cache_dir, checker_code_path, testcase.checker_limit, testcase.input_path, output_path, output_path /* stderr */, lrun_args, ENV_CHECK, checker_argv);
+
+    // dest must be the same as the dest used for compile_code
+    string dest = get_code_work_dir(fs::join(cache_dir, SUBDIR_CHECKER), checker_code_path);
+    lrun_result = run_code(etc_dir, cache_dir, dest, checker_code_path, testcase.checker_limit, testcase.input_path, output_path, output_path /* stderr */, lrun_args, ENV_CHECK, checker_argv);
     checker_output = fs::nread(output_path, TRUNC_LOG);
   }
 
@@ -1852,12 +1861,15 @@ static j::object run_testcase(const string& etc_dir, const string& cache_dir, co
   j::object result;
 
   // prepare output file path
-  string stdout_path = get_temp_file_path(cache_dir);
-  string stderr_path = keep_stderr ? get_temp_file_path(cache_dir) : DEV_NULL;
+  string stdout_path = get_temp_file_path(cache_dir, "out");
+  string stderr_path = keep_stderr ? get_temp_file_path(cache_dir, "err") : DEV_NULL;
   LrunResult run_result;
   do {
     fs::ScopedFileLock lock(stdout_path);
-    run_result = run_code(etc_dir, cache_dir, code_path, testcase.runtime_limit, testcase.input_path, stdout_path, stderr_path, vector<string>() /* extra_lrun_args */, ENV_RUN /* env */);
+
+    // dest must be the same with dest used in compile_code
+    string dest = get_code_work_dir(get_process_tmp_dir(cache_dir), code_path);
+    run_result = run_code(etc_dir, cache_dir, dest, code_path, testcase.runtime_limit, testcase.input_path, stdout_path, stderr_path, vector<string>() /* extra_lrun_args */, ENV_RUN /* env */);
 
     // write stdout, stderr
     if (keep_stdout) result["stdout"] = j::value(fs::nread(stdout_path, TRUNC_LOG));
@@ -1972,20 +1984,22 @@ int main(int argc, char const *argv[]) {
   j::object jo;
   bool compiled = true;
 
-  // time(0) is only accurate to seconds, which is not enough, add pid randomness
-  srand((time(0) << sizeof(pid_t)) | getpid());
+  // time(0) is only accurate to seconds, which is not enough, add some pid randomness
+  srand((time(0) << 4) | getpid());
 
   { // precompile user code
-    CompileResult compile_result = compile_code(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.compiler_limit);
-    register_cleanup_path(compile_result.work_dir);
+    string dest = get_code_work_dir(get_process_tmp_dir(opts.cache_dir), opts.user_code_path);
+    CompileResult compile_result = compile_code(opts.etc_dir, opts.cache_dir, dest, opts.user_code_path, opts.compiler_limit);
     write_compile_result(jo, compile_result, "compilation");
     if (!compile_result.success) compiled = false;
   }
 
   if (compiled && !opts.checker_code_path.empty()) { // precompile checker code
-    CompileResult compile_result = compile_code(opts.etc_dir, opts.cache_dir, opts.checker_code_path, opts.compiler_limit, SUBDIR_CHECKER);
+    string dest = get_code_work_dir(fs::join(opts.cache_dir, SUBDIR_CHECKER), opts.checker_code_path);
+    CompileResult compile_result = compile_code(opts.etc_dir, opts.cache_dir, dest, opts.checker_code_path, opts.compiler_limit);
     write_compile_result(jo, compile_result, "checkerCompilation");
     if (!compile_result.success) compiled = false;
+    prepare_checker_mount_bind_files(dest);
   }
 
   if (compiled) {
