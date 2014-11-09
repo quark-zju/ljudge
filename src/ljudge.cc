@@ -535,7 +535,9 @@ static string prepare_chroot(const string& etc_dir, const string& code_path, con
     if (ret != 0) log_info("failed to umount %s", dest.c_str());
   }
 
-  if (fs::mkdir_p(dest) < 0) fatal("can not mkdir: %s", dest.c_str());
+  if (!fs::is_accessible(dest, F_OK)) {
+    if (fs::mkdir_p(dest) < 0) fatal("cannot mkdir: %s", dest.c_str());
+  }
 
   do {
     fs::ScopedFileLock lock(dest);
