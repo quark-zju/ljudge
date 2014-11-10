@@ -1621,6 +1621,7 @@ static CompileResult compile_code(const string& etc_dir, const string& cache_dir
   enforce_mkdir_p(dest);
 
   do {
+    // compile_code is not running in 2 threads. locking processes is enough.
     fs::ScopedFileLock lock(dest);
 
     string src_name = get_src_name(etc_dir, code_path);
@@ -1834,7 +1835,7 @@ static void run_custom_checker(j::object& result, const string& etc_dir, const s
   LrunResult lrun_result;
   {
     string output_path = get_temp_file_path(cache_dir, "checker-out");
-    fs::ScopedFileLock lock(output_path);
+    // should flock output_path, but since we use different tmp path, and it is scoped in pid dir. no more necessary
     // the checker needs argv[1], which is "user_output"
     vector<string> checker_argv;
     checker_argv.push_back("user_output");
@@ -1884,8 +1885,7 @@ static j::object run_testcase(const string& etc_dir, const string& cache_dir, co
   string stderr_path = keep_stderr ? get_temp_file_path(cache_dir, "err") : DEV_NULL;
   LrunResult run_result;
   do {
-    fs::ScopedFileLock lock(stdout_path);
-
+    // should flock stdout_path, but since we use different tmp path, and it is scoped in pid dir. no more necessary
     // dest must be the same with dest used in compile_code
     string dest = get_code_work_dir(get_process_tmp_dir(cache_dir), code_path);
     run_result = run_code(etc_dir, cache_dir, dest, code_path, testcase.runtime_limit, testcase.input_path, stdout_path, stderr_path, vector<string>() /* extra_lrun_args */, ENV_RUN /* env */);
