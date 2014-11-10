@@ -1,3 +1,10 @@
+ljudge (0.4.0) unstable; urgency=low
+
+  * Fix some threading issues.
+  * Remove some debugging code.
+
+ -- Jun Wu <quark@lihdd.net>  Sun, 10 Nov 2014 21:40:00 +0800
+
 ljudge (0.3.0) unstable; urgency=low
 
   * Initial debian package release.
