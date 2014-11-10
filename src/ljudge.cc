@@ -1582,15 +1582,18 @@ static string get_code_work_dir(const string& base_dir, const string& code_path)
   return dest;
 }
 
+std::mutex temp_file_path_mutex;
+
 static string get_temp_file_path(const string& cache_dir, const string& prefix = "", int len = 10) {
   string dest;
+  std::lock_guard<std::mutex> mutex_lock(temp_file_path_mutex);
   do {
     string hash = get_random_hash(len);
     dest = fs::join(get_process_tmp_dir(cache_dir), prefix.empty() ? hash : format("%s-%s", prefix, hash));
   } while (fs::exists(dest));
   enforce_mkdir_p(fs::dirname(dest));
   if (!fs::touch(dest)) fatal("can not prepare temp file %s", dest.c_str());
-  // no more needed since it is inside process tmp dir
+  // no more needed since it is inside the process tmp dir, which will be removed
   // register_cleanup_path(dest);
   return dest;
 }
