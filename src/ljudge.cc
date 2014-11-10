@@ -81,6 +81,7 @@ namespace j = picojson;
 
 #define DEV_NULL "/dev/null"
 #define ETC_PASSWD "/etc/passwd"
+#define PROC_CGROUP "/proc/cgroup"
 
 namespace TestcaseResult {
   /* [[[cog
@@ -129,7 +130,7 @@ struct Options {
   bool keep_stdout;
   bool keep_stderr;
   bool direct_mode;  // if true, just run the program and prints the result
-  unsigned int nthread;  // how many testcases can run in parallel. default is decided by omp (cpu cores
+  int nthread;  // how many testcases can run in parallel. default is decided by omp (cpu cores
 };
 
 struct LrunArgs : public vector<string> {
@@ -369,7 +370,7 @@ static list<string> get_config_list(const string& etc_dir, const string& code_pa
     FILE *fp = fopen(path.c_str(), "r");
     if (!fp) fatal("can not open %s for reading", path.c_str());
     for (ssize_t line_len = 0; line_len != -1; line_len = getline(&line, &line_size, fp)) {
-      if (line_len <= 1 || line[0] == '#') continue;
+      if (!line || line_len <= 1 || line[0] == '#') continue;
       if (line[line_len - 1] == '\n') line[line_len - 1] = 0;  // chomp
       // ltrim
       const char *p = line;
@@ -810,8 +811,8 @@ static void print_checkfail(const string& name, const string& message, char symb
 }
 
 static bool is_cgroup_enabled(const string& subsystem) {
-  if (!fs::exists("/proc/cgroups")) return false;
-  FILE * fp = fopen("/proc/cgroups", "r");
+  if (!fs::exists(PROC_CGROUP)) return false;
+  FILE * fp = fopen(PROC_CGROUP, "r");
   if (!fp) return false;
   int enabled_bit = 0;
   char name[32], enabled[16];
