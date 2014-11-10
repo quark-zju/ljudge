@@ -784,9 +784,6 @@ static string check_output(const string& command, bool capture_stderr = false) {
 }
 
 static void print_checkpoint(const string& name, bool passed, const string& solution) {
-#ifndef NDEBUG
-  if (getenv("YOU_SHALL_NOT_PASS")) passed = false;
-#endif
   term::set(term::attr::BOLD, term::fg::WHITE, passed ? term::bg::GREEN : term::bg::RED);
   printf(passed ? " Y " : " N ");
   term::set();
@@ -1446,7 +1443,9 @@ static LrunResult lrun(
   if (ret != 0) fatal("can not create pipe to run lrun");
 
 #ifndef NDEBUG
-  prepare_crash_report_path();
+  if (getenv("LJUDGE_SET_LRUN_SEGFAULT_PATH")) {
+    prepare_crash_report_path();
+  }
   string debug_lrun_command = "lrun";
   for (__typeof(args.begin()) it = args.begin(); it != args.end(); ++it) {
       debug_lrun_command += " " + shell_escape(*it);
@@ -1461,33 +1460,6 @@ static LrunResult lrun(
   }
   log_debug("running: %s", debug_lrun_command.c_str());
   fflush(stderr);
-  if (getenv("LJUDGE_DEBUG_REPLACE_LRUN_CMD_USING")) {
-    string cmd = getenv("LJUDGE_DEBUG_REPLACE_LRUN_CMD_USING");
-    if (cmd.length() <= 1) cmd = "bash";
-    fprintf(stderr, "Debug lrun using %s [y/n]?", cmd.c_str());
-    char c;
-    int n = scanf(" %c", &c);
-    if (n == 1 && c == 'y') {
-      for (int i = 0; i < (int)args.size(); ++i) {
-        if (args[i] == "--max-real-time") {
-          log_debug("overwriting max-real-time");
-          args[i + 1] = "9000000";  // a enough large value
-        } else if (args[i] == "--") {
-          args[i] = "--debug";
-          log_debug("overwriting cmd to %s", cmd.c_str());
-          args.resize(i + 1);
-          args.push_back("--");
-          args.push_back(cmd);
-          break;
-        }
-      }
-      log_debug("overwriting stdin: %s, stdout: %s, stderr: %s", stdin_path.c_str(), stdout_path.c_str(), stderr_path.c_str());
-      stdin_path = "";
-      stdout_path = "";
-      stderr_path = "";
-    }
-  }
-  if (getenv("DEBUG") && stderr_path == DEV_NULL) stderr_path = "";
   if (getenv("LJUDGE_KEEP_LRUN_STDERR") && stderr_path == DEV_NULL) {
     stderr_path = format("/tmp/ljudge_lrun.%s.log", get_random_hash(6));
     log_debug("lrun stderr redirects to %s", stderr_path.c_str());
