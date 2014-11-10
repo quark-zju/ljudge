@@ -723,7 +723,7 @@ static void print_json_schema() {
   "        },\n"
   "        \"checkerOutput\": {\n"
   "          \"type\": \"string\",\n"
-  "          \"description\": \"Custom checker output (stdout and stderr). Present only when custom checker is used and it writes something to stdout\"\n"
+  "          \"description\": \"Custom checker output (stdout). Present only when custom checker is used and it writes something to stdout\"\n"
   "        }\n"
   "      },\n"
   "      \"additionalProperties\": false,\n"
@@ -1842,7 +1842,7 @@ static void run_custom_checker(j::object& result, const string& etc_dir, const s
 
     // dest must be the same as the dest used for compile_code
     string dest = get_code_work_dir(fs::join(cache_dir, SUBDIR_CHECKER), checker_code_path);
-    lrun_result = run_code(etc_dir, cache_dir, dest, checker_code_path, testcase.checker_limit, testcase.input_path, output_path, output_path /* stderr */, lrun_args, ENV_CHECK, checker_argv);
+    lrun_result = run_code(etc_dir, cache_dir, dest, checker_code_path, testcase.checker_limit, testcase.input_path, output_path, DEV_NULL /* stderr */, lrun_args, ENV_CHECK, checker_argv);
     checker_output = fs::nread(output_path, TRUNC_LOG);
   }
 

@@ -82,7 +82,7 @@
         },
         "checkerOutput": {
           "type": "string",
-          "description": "Custom checker output (stdout and stderr). Present only when custom checker is used and it writes something to stdout"
+          "description": "Custom checker output (stdout). Present only when custom checker is used and it writes something to stdout"
         }
       },
       "additionalProperties": false,
