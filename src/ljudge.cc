@@ -1496,25 +1496,25 @@ static LrunResult lrun(
           // this reduces 0.03 to 0.04s per lrun run. when running
           // examples/a-plus-b/run.sh, real time decreases from 14.27
           // to 13.29, about 7%.
+          result = parse_lrun_output(lrun_output);
           break;
         }
       } else {
         // EOF or error. get lrun exit status
         while (waitpid(pid, &status, 0) != pid) usleep(10000);
+        if (status && WIFSIGNALED(status)) {
+          result.error = format("lrun was signaled (%d)", WTERMSIG(status));
+        } else if (status && WEXITSTATUS(status) != 0) {
+          result.error = format("lrun exited with non-zero (%d)", WEXITSTATUS(status));
+        } else {
+          result.error = format("lrun did not generate expected output");
+        }
         break;
       }
     }
     close(pipe_fd[0]);
-
     log_debug("lrun output:\n%s", lrun_output.c_str());
 
-    if (status && WIFSIGNALED(status)) {
-      result.error = format("lrun was signaled (%d)", WTERMSIG(status));
-    } else if (status && WEXITSTATUS(status) != 0) {
-      result.error = format("lrun exited with non-zero (%d)", WEXITSTATUS(status));
-    } else {
-      result = parse_lrun_output(lrun_output);
-    }
   } else {
     prctl(PR_SET_PDEATHSIG, SIGTERM);
     close(pipe_fd[0]);
