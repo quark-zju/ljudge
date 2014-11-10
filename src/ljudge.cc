@@ -13,7 +13,6 @@
 #include <list>
 #include <map>
 #include <mutex>
-#include <omp.h>
 #include <string>
 #include <sys/prctl.h>
 #include <sys/stat.h>
@@ -22,6 +21,11 @@
 #include <time.h>
 #include <unistd.h>
 #include <vector>
+#ifdef _OPENMP
+#include <omp.h>
+#else
+#warning OpenMP support is not detected. Threading will not work
+#endif
 
 #include "sha1.hpp"
 #include "fs.hpp"
@@ -229,6 +233,25 @@ struct CompileResult {
   bool success;
 };
 
+#ifdef _OPENMP
+static std::map<string, omp_lock_t> omp_locks;
+
+struct ScopedOMPLock {
+  ScopedOMPLock(const string& name) {
+    if (!omp_locks.count(name)) {
+      omp_locks[name] = omp_lock_t();
+      omp_init_lock(&omp_locks[name]);
+    }
+    plock_ = &omp_locks[name];
+    omp_set_lock(plock_);
+  }
+  ~ScopedOMPLock() {
+    omp_unset_lock(plock_);
+  }
+  omp_lock_t *plock_;
+};
+#endif
+
 string string_chomp(const string& str) {
   if (str.empty() || str[str.length() - 1] != '\n') return str;
   return str.substr(0, str.length() - 1);
@@ -399,10 +422,10 @@ static string get_src_name(const string& etc_dir, const string& code_path) {
   return get_config_content(etc_dir, code_path, ENV_COMPILE EXT_SRC_NAME, fallback);
 }
 
-std::mutex dummy_passwd_mutex;
-
 static string prepare_dummy_passwd(const string& cache_dir) {
-  std::lock_guard<std::mutex> mutex_lock(dummy_passwd_mutex);
+#ifdef _OPENMP
+  ScopedOMPLock("dummy_passwd_lock");
+#endif
   string path = fs::join(cache_dir, format("tmp/etc/passwd-%d", (int)getuid()));
   string content = format("nobody:%d:%d::/tmp:/bin/false\n", (int)getuid(), (int)getgid());
   if (!fs::exists(path) || fs::read(path) != content) {
@@ -532,8 +555,6 @@ static void ensure_system(const string& cmd) {
   if (ret != 0) fatal("failed to run %s", cmd.c_str());
 }
 
-std::mutex chroot_mutex;
-
 static string prepare_chroot(const string& etc_dir, const string& code_path, const string& env, const string& base_dir) {
   string readable_config = get_config_path(etc_dir, code_path, format("%s%s", env, EXT_FS_REGEX));
   log_debug("prepare_chroot: %s", readable_config.c_str());
@@ -542,16 +563,19 @@ static string prepare_chroot(const string& etc_dir, const string& code_path, con
   if (!readable_config.empty()) content += format("r%s", fs::read(readable_config));
 
   string dest = fs::join(base_dir, sha1(content));
-  if (fs::is_mounted(dest)) {
-    log_debug("already mounted: %s. use it directly", dest.c_str());
-    return dest;
-  }
 
   {
     // lock both processes and threads
-    std::lock_guard<std::mutex> mutex_lock(chroot_mutex);
+#ifdef _OPENMP
+    ScopedOMPLock("chroot_lock");
+#endif
     enforce_mkdir_p(base_dir);
     fs::ScopedFileLock base_dir_lock(base_dir);
+
+    if (fs::is_mounted(dest)) {
+      log_debug("already mounted: %s. use it directly", dest.c_str());
+      return dest;
+    }
 
     if (fs::is_disconnected(dest)) {
       log_info("%s is disconnected. try to umount it", dest.c_str());
@@ -603,7 +627,9 @@ static void print_usage() {
       "Available options: (put these before the first `--input`)\n"
       "  ljudge [--etc-dir path] [--cache-dir path]\n"
       "         [--keep-stdout] [--keep-stderr]\n"
+#ifdef _OPENMP
       "         [--threads n]\n"
+#endif
       "         [--max-cpu-time seconds] [--max-real-time seconds]\n"
       "         [--max-memory bytes] [--max-output bytes]\n"
       "         [--max-checker-cpu-time seconds] [--max-checker-real-time seconds]\n"
@@ -756,6 +782,13 @@ static void print_json_schema() {
 
 static void print_version() {
   printf("ljudge %s\n", LJUDGE_VERSION);
+  printf("\nthread support: %s\n",
+#ifdef _OPENMP
+    "yes"
+#else
+    "no"
+#endif
+  );
   cleanup_exit(0);
 }
 
@@ -1282,9 +1315,11 @@ static Options parse_cli_options(int argc, const char *argv[]) {
       options.keep_stdout = true;
     } else if (option == "keep-stderr") {
       options.keep_stderr = true;
+#ifdef _OPENMP
     } else if (option == "threads" || option == "jobs" || option == "j") {
       REQUIRE_NARGV(1);
       options.nthread = NEXT_NUMBER_ARG;
+#endif
     } else {
       fatal("'%s' is not a valid option", argv[i]);
     }
@@ -1357,9 +1392,11 @@ static void check_options(const Options& options) {
     errors.push_back("Running ljudge using root is forbidden");
   }
 
+#ifdef _OPENMP
   if (options.nthread < 0) {
     errors.push_back("--threads cannot < 0");
   }
+#endif
 
   if (errors.size() > 0) {
     for (int i = 0; i < (int)errors.size(); ++i) {
@@ -1583,11 +1620,11 @@ static string get_code_work_dir(const string& base_dir, const string& code_path)
   return dest;
 }
 
-std::mutex temp_file_path_mutex;
-
 static string get_temp_file_path(const string& cache_dir, const string& prefix = "", int len = 10) {
   string dest;
-  std::lock_guard<std::mutex> mutex_lock(temp_file_path_mutex);
+#ifdef _OPENMP
+  ScopedOMPLock("temp_file_path_lock");
+#endif
   do {
     string hash = get_random_hash(len);
     dest = fs::join(get_process_tmp_dir(cache_dir), prefix.empty() ? hash : format("%s-%s", prefix, hash));
@@ -1958,11 +1995,15 @@ static j::object run_testcase(const string& etc_dir, const string& cache_dir, co
 
 static j::value run_testcases(const Options& opts) {
   log_debug("nthread = %u", opts.nthread);
+#ifdef _OPENMP
   if (opts.nthread > 0) omp_set_num_threads(opts.nthread);
+#endif
 
   vector<j::value> results;
   results.resize(opts.cases.size());
+#ifdef _OPENMP
   #pragma omp parallel for if (opts.nthread != 1 && opts.cases.size() > 1)
+#endif
   for (int i = 0; i < (int)opts.cases.size(); ++i) {
     j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
     results[i] = j::value(testcase_result);
