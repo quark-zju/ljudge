@@ -534,55 +534,43 @@ static void ensure_system(const string& cmd) {
 std::mutex chroot_mutex;
 
 static string prepare_chroot(const string& etc_dir, const string& code_path, const string& env, const string& base_dir) {
-  std::lock_guard<std::mutex> mutex_lock(chroot_mutex);
-
-  enforce_mkdir_p(base_dir);
-  fs::ScopedFileLock base_dir_lock(base_dir);
-
   string readable_config = get_config_path(etc_dir, code_path, format("%s%s", env, EXT_FS_REGEX));
   log_debug("prepare_chroot: %s", readable_config.c_str());
 
-  // previously it's "re:///tmp" because lrun --bindfs checks write permission and we always bind to "/tmp".
-  // newer lrun does not require write permission so it could be empty.
-  string writable_config = "";
-
-  string content = "";
+  string content = "";  // content used for sha1
   if (!readable_config.empty()) content += format("r%s", fs::read(readable_config));
 
   string dest = fs::join(base_dir, sha1(content));
-  if (fs::is_disconnected(dest)) {
-    log_info("%s is disconnected. try to umount it", dest.c_str());
-    int ret = system(format("fusermount -u %s", shell_escape(dest)).c_str());
-    if (ret != 0) log_info("failed to umount %s", dest.c_str());
+  if (fs::is_mounted(dest)) {
+    log_debug("already mounted: %s. use it directly", dest.c_str());
+    return dest;
   }
 
-  enforce_mkdir_p(dest);
+  {
+    // lock both processes and threads
+    std::lock_guard<std::mutex> mutex_lock(chroot_mutex);
+    enforce_mkdir_p(base_dir);
+    fs::ScopedFileLock base_dir_lock(base_dir);
 
-  do {
-    // since we have a bigger lock outside
-    // fs::ScopedFileLock lock(dest);
-
-    if (fs::is_mounted(dest)) {
-      log_debug("already mounted: %s. use it directly", dest.c_str());
-      break;
+    if (fs::is_disconnected(dest)) {
+      log_info("%s is disconnected. try to umount it", dest.c_str());
+      int ret = system(format("fusermount -u %s", shell_escape(dest)).c_str());
+      if (ret != 0) log_info("failed to umount %s", dest.c_str());
     }
+
+    enforce_mkdir_p(dest);
 
     string cmd = format("filterefs %s -o allow_other,nonempty", shell_escape(dest));
     if (!readable_config.empty()) {
       cmd += format(" --readable-config %s ", shell_escape(readable_config));
-    }
-    if (!writable_config.empty()) {
-      cmd += format(" --writable-config %s ", shell_escape(writable_config));
-    }
-    if (!readable_config.empty()) {
       string comment = fs::join(fs::basename(fs::dirname(readable_config)), env);
       cmd += format(" --comment %s ", comment);
     }
     ensure_system(cmd);
 
-    // wait 2s until mount finishes
+    // wait 5s until mount finishes
     int mounted = 0;
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < 50; ++i) {
       if (fs::is_mounted(dest)) {
         mounted = 1;
         break;
@@ -590,7 +578,7 @@ static string prepare_chroot(const string& etc_dir, const string& code_path, con
       usleep(100000); // 0.1s
     }
     if (!mounted) fatal("%s is not mounted correctly", dest.c_str());
-  } while (false);
+  }
 
   return dest;
 }
