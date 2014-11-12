@@ -47,7 +47,7 @@ namespace j = picojson;
 
 #define fatal(...) { fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); cleanup_exit(1); }
 
-#define LJUDGE_VERSION "v0.4"
+#define LJUDGE_VERSION "v0.4.1"
 
 // truncate log size, ex. compiler log, stdout, stderr, etc.
 #define TRUNC_LOG 65535
