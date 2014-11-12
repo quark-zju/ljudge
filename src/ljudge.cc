@@ -85,7 +85,7 @@ namespace j = picojson;
 
 #define DEV_NULL "/dev/null"
 #define ETC_PASSWD "/etc/passwd"
-#define PROC_CGROUP "/proc/cgroup"
+#define PROC_CGROUP "/proc/cgroups"
 
 namespace TestcaseResult {
   /* [[[cog
