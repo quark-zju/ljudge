@@ -1328,10 +1328,14 @@ static Options parse_cli_options(int argc, const char *argv[]) {
 
   // if the user has decided to skip checker and did not provide a testcase, add a dummy one
   if (options.cases.empty() && options.skip_checker) {
-    current_case.input_path = isatty(STDIN_FILENO) ?
-        (options.direct_mode ? "" : DEV_NULL)
-      : fs::resolve(format("/proc/self/fd/%d", STDIN_FILENO));
-    current_case.runtime_limit.real_time = 0;  // unlimited
+    string input_path = isatty(STDIN_FILENO) ?
+        (options.direct_mode ? "" /* pass through */ : DEV_NULL)
+      : fs::resolve(format("/proc/self/fd/%d", STDIN_FILENO) /* the file is passed using '<' */);
+    if (!fs::is_accessible(input_path, R_OK)) input_path = DEV_NULL;
+    current_case.input_path = input_path;
+    if (options.direct_mode && input_path != DEV_NULL && !input_path.empty() /* not using a real file */) {
+      current_case.runtime_limit.real_time = 0;  // unlimited
+    }
     options.cases.push_back(current_case);
   }
 
