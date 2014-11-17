@@ -1157,7 +1157,7 @@ static Options parse_cli_options(int argc, const char *argv[]) {
   // default options
   {
     string home = getenv("HOME") ? getenv("HOME") : "/tmp";
-    string etc_dir_candidates[] = { "/etc/ljudge", fs::join(home, ".config/ljudge"), "./etc/ljudge", "../etc/ljudge" };
+    string etc_dir_candidates[] = { "/etc/ljudge", fs::join(home, ".config/ljudge"), fs::join(home, "ljudge/etc/ljudge"), "./etc/ljudge", "../etc/ljudge" };
     for (size_t i = 0; i < sizeof(etc_dir_candidates) / sizeof(etc_dir_candidates[0]); ++i) {
       if (fs::is_dir(etc_dir_candidates[i])) {
         options.etc_dir = etc_dir_candidates[i];
