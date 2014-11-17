@@ -117,6 +117,8 @@ struct Limit {
 struct Testcase {
   string input_path;
   string output_path;
+  string output_sha1;
+  string output_pe_sha1;
   Limit runtime_limit;
   Limit checker_limit;
 };
@@ -613,8 +615,9 @@ static void print_usage() {
       "Compile, run, judge and print response JSON:\n"
       "  ljudge --user-code (or -u) user-code-path\n"
       "         [--checker-code (or -c) checker-code-path\n"
-      "         --input (or -i) input-path --output (or -o) output-path\n"
-      "         [--input input-path --output output-path] ...\n"
+      "         [--testcase] --input (or -i) input-path --output (or -o) output-path\n"
+      "         (or: --input input-path --output-sha1 ac-chomp-sha1,pe-sha1)\n"
+      "         [[--testcase] --input path --output path (or --output-sha1 sha1)] ...\n"
       "\n"
       "Compile, run and print response JSON:\n"
       "  ljudge --skip-checker (implies --keep-stdout)\n"
@@ -1226,6 +1229,12 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     } else if (option == "output" || option == "o") {
       REQUIRE_NARGV(1);
       current_case.output_path = NEXT_STRING_ARG;
+    } else if (option == "output-sha1" || option == "osha1") {
+      // --output-sha1 ac-sha1(chomp),pe-sha1
+      REQUIRE_NARGV(1);
+      string sha1s = NEXT_STRING_ARG;
+      current_case.output_sha1 = sha1s.substr(0, 40);
+      current_case.output_pe_sha1 = sha1s.substr(41, 40);
     /* [[[cog
       import cog
       opts = ['cpu_time', 'real_time', 'output', 'memory']
@@ -1364,6 +1373,14 @@ static void check_path(std::vector<string>& errors, const string& path, bool is_
   }
 }
 
+static bool is_sha1(const string& str) {
+  if (str.length() != 40) return false;
+  for (int i = 0; i < 40; ++i) {
+    if (str[i] < '0' || str[i] > 'f') return false;
+  }
+  return true;
+}
+
 static void check_options(const Options& options) {
   std::vector<string> errors;
 
@@ -1374,13 +1391,21 @@ static void check_options(const Options& options) {
   check_path(errors, options.user_code_path, false, "--user-code");
 
   for (int i = 0; i < (int)options.cases.size(); ++i) {
-    if (!options.direct_mode || !options.cases[i].input_path.empty()) {
-      check_path(errors, options.cases[i].input_path, false /* is_dir */, format("--input of testcases[%d]", i));
+    const Testcase& kase = options.cases[i];
+    if (!options.direct_mode || !kase.input_path.empty()) {
+      check_path(errors, kase.input_path, false /* is_dir */, format("--input of testcases[%d]", i));
     }
     if (options.skip_checker) {
-      if (!options.cases[i].output_path.empty()) errors.push_back("--output conflicts with --capture-user-output");
+      if (!kase.output_path.empty()) errors.push_back("--output conflicts with --skip-checker");
+      if (!kase.output_sha1.empty()) errors.push_back("--output-sha1 conflicts with --skip-checker");
     } else {
-      check_path(errors, options.cases[i].output_path, false, format("--output of testcases[%d]", i));
+      if (!kase.output_sha1.empty()) {
+        if (!is_sha1(kase.output_sha1)) errors.push_back("'" + kase.output_sha1 + "' is not a valid hex SHA1");
+        // allow output_pe_sha1 to be empty
+        if (!kase.output_pe_sha1.empty() && !is_sha1(kase.output_pe_sha1)) errors.push_back("'" + kase.output_pe_sha1 + "' is not a invalid hex SHA1");
+      } else {
+        check_path(errors, kase.output_path, false, format("--output of testcases[%d]", i));
+      }
     }
   }
 
@@ -1818,16 +1843,26 @@ static string remove_space(const string& str) {
 
 static void run_standard_checker(j::object& result, const Testcase& testcase, const string& user_output_path) {
   log_debug("run_standard_checker: %s %s", testcase.output_path.c_str(), user_output_path.c_str());
-  string out = string_chomp(fs::read(testcase.output_path));
+  bool use_sha1 = !testcase.output_sha1.empty();
   string usr = string_chomp(fs::read(user_output_path));
 
-  if (usr == out) {
-    result["result"] = j::value(TestcaseResult::ACCEPTED);
-    return;
-  } else if (remove_space(usr) == remove_space(out)) {
-    result["result"] = j::value(TestcaseResult::PRESENTATION_ERROR);
+  if (use_sha1) {
+    if (sha1(usr) == testcase.output_sha1) {
+      result["result"] = j::value(TestcaseResult::ACCEPTED);
+    } else if (!testcase.output_pe_sha1.empty() && sha1(remove_space(usr)) == testcase.output_pe_sha1) {
+      result["result"] = j::value(TestcaseResult::PRESENTATION_ERROR);
+    } else {
+      result["result"] = j::value(TestcaseResult::WRONG_ANSWER);
+    }
   } else {
-    result["result"] = j::value(TestcaseResult::WRONG_ANSWER);
+    string out = string_chomp(fs::read(testcase.output_path));
+    if (usr == out) {
+      result["result"] = j::value(TestcaseResult::ACCEPTED);
+    } else if (remove_space(usr) == remove_space(out)) {
+      result["result"] = j::value(TestcaseResult::PRESENTATION_ERROR);
+    } else {
+      result["result"] = j::value(TestcaseResult::WRONG_ANSWER);
+    }
   }
 }
 

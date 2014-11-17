@@ -18,7 +18,7 @@ for i in $LIST; do
 
   export SEGFAULT_USE_ALTSTACK=1
   export SEGFAULT_OUTPUT_NAME=segfault.$i.$$.log
-  RESULT=`ljudge --debug --keep-stdout --keep-stderr --user-code $src --testcase --input 1.in --output 1.out --testcase --input 2.in --output 2.out 2> $DEBUG_LOG | cat`
+  RESULT=`ljudge --debug --keep-stdout --keep-stderr --user-code $src --testcase --input 1.in --output 1.out --testcase --input 2.in --output-sha1 7b80e651613b8ee99d6f2a578062673a7e40bb65,6b979d97a529a16aced6c9cc59375fa4fe3962e7 2> $DEBUG_LOG | cat`
   EXITCODE=$?
   if [ "$EXITCODE" != 0 ] || [ -z "$RESULT" ] || (echo1 "$RESULT" | grep -qi ERROR) || (echo1 "$RESULT" | grep -qv ACCEPT); then
     # Log error
