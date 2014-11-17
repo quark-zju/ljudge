@@ -1186,7 +1186,7 @@ static Options parse_cli_options(int argc, const char *argv[]) {
 #define NEXT_NUMBER_ARG (to_number(NEXT_STRING_ARG))
 #define APPEND_TEST_CASE if (!current_case.input_path.empty()) { \
   options.cases.push_back(current_case); \
-  current_case.input_path = current_case.output_path = "";}
+  current_case.input_path = current_case.output_path = current_case.output_sha1 = "";}
 
   for (int i = 1; i < argc; ++i) {
     string option;
