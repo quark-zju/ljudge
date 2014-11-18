@@ -35,6 +35,7 @@ namespace fs {
   std::string extname(const std::string& path);
   bool is_disconnected(const std::string& path);
   bool is_dir(const std::string& path);
+  bool is_symlink(const std::string& path);
   int mkdir_p(const std::string& dir, const mode_t mode = 0755);
   int rm_rf(const std::string& path);
   bool is_absolute(const std::string& path);

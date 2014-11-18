@@ -72,6 +72,7 @@ namespace j = picojson;
 #define EXT_LRUN_ARGS ".lrun_args"
 #define EXT_NAME ".name"
 #define EXT_OPT_FAKE_PASSWD "fake_passwd"
+#define EXT_OPT_BIND_COMMON_LIBS "bind_common_libs"
 #define EXT_FS_OVERRIDE ".fs_override"
 #define EXT_SRC_NAME ".src_name"
 
@@ -439,7 +440,7 @@ static string prepare_dummy_passwd(const string& cache_dir) {
   return path;
 }
 
-static list<string> get_override_lrun_args(const string& etc_dir, const string& cache_dir, const string& code_path, const string& env, const string& chroot_path) {
+static list<string> get_override_lrun_args(const string& etc_dir, const string& cache_dir, const string& code_path, const string& env, const string& chroot_path, const string& interpreter_name = "") {
   list<string> result;
   // Hide real /etc/passwd (required by Python) on demand
   if (fs::exists(fs::join(chroot_path, ETC_PASSWD)) && get_config_content(etc_dir, code_path, format("%s%s", env, EXT_OPT_FAKE_PASSWD), OPTION_VALUE_TRUE) == OPTION_VALUE_TRUE) {
@@ -449,6 +450,26 @@ static list<string> get_override_lrun_args(const string& etc_dir, const string& 
     result.push_back(passwd_path);
   }
 
+  // mount --bind common libraries so that memory counter will be more accurate
+  // if this step is skipped, cgroup memory counter will add fuse related memory
+  if (get_config_content(etc_dir, code_path, format("%s%s", env, EXT_OPT_BIND_COMMON_LIBS), OPTION_VALUE_TRUE) == OPTION_VALUE_TRUE) {
+    const string common_paths[] = {
+      "/usr/lib", "/etc/alternatives", "/etc/ld.so.cache", "/etc/ld.so.conf", "/etc/ld.so.conf.d", "/lib", "/lib64",
+      interpreter_name.empty() ? "" : fs::join("/usr/bin", interpreter_name),
+      interpreter_name.empty() ? "" : fs::join("/etc/alternatives", interpreter_name),
+    };
+    for (size_t i = 0; i < sizeof(common_paths) / sizeof(common_paths[0]); ++i) {
+      const string& path = common_paths[i];
+      if (path.empty()) continue;
+      const string chrooted_path = fs::join(chroot_path, path);
+      if (!fs::exists(chrooted_path) || fs::is_symlink(chrooted_path)) continue;
+      result.push_back("--bindfs-ro");
+      result.push_back(chrooted_path);
+      result.push_back(path);
+    }
+  }
+
+  // override_dir in config
   string override_dir = get_config_path(etc_dir, code_path, format("%s%s", env, EXT_FS_OVERRIDE));
   if (override_dir.empty()) return result;
 
@@ -1808,7 +1829,7 @@ static LrunResult run_code(
     lrun_args.append_default();
     lrun_args.append("--chroot", chroot_path);
     lrun_args.append("--bindfs-ro", fs::join(chroot_path, "/tmp"), dest);
-    lrun_args.append(get_override_lrun_args(etc_dir, cache_dir, code_path, ENV_RUN, chroot_path));
+    lrun_args.append(get_override_lrun_args(etc_dir, cache_dir, code_path, ENV_RUN, chroot_path, run_cmd.size() >= 2 ? (*run_cmd.begin()) : "" ));
     lrun_args.append(limit);
     lrun_args.append(escape_list(extra_lrun_args, mappings));
     lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, format("%s%s", env, EXT_LRUN_ARGS)), mappings)));

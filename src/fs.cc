@@ -140,6 +140,12 @@ bool fs::is_dir(const string& path) {
   return S_ISDIR(buf.st_mode) ? 1 : 0;
 }
 
+bool fs::is_symlink(const string& path) {
+  struct stat buf;
+  if (lstat(path.c_str(), &buf) == -1) return 0;
+  return S_ISLNK(buf.st_mode) ? 1 : 0;
+}
+
 bool fs::is_disconnected(const string& path) {
   struct stat buf;
   if (stat(path.c_str(), &buf) == -1) {
