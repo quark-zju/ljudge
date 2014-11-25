@@ -1,3 +1,11 @@
+ljudge (0.5.0) unstable; urgency=low
+
+  * Support check output using SHA1.
+  * More accurate memory accounting.
+  * Ship with vbnc, gcj configs.
+
+ -- Jun Wu <quark@lihdd.net>  Tue, 25 Nov 2014 14:35:00 +0800
+
 ljudge (0.4.1) unstable; urgency=low
 
   * Fix cgroup checking.

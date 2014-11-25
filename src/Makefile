@@ -28,6 +28,10 @@ clean:
 
 install: ljudge
 	install -D -m0755 -oroot -groot -s $< $(DESTDIR)$(PREFIX)/bin/ljudge
+ifneq ($(DESTDIR),)
+	mkdir -p $(DESTDIR)/etc/
+	cp -a ../etc/ljudge $(DESTDIR)/etc/
+endif
 
 cog: ljudge.cc
 	cog.py -r $^
