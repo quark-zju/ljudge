@@ -1,0 +1,11 @@
+mkdir /dev
+mkdir /tmp
+# java needs /proc/self/exe to know its path
+mkdir /proc
+mirror /lib/
+mirror /lib64/
+mirror /usr/lib*/
+mirror /etc/ld.so.cache
+mirror /etc/alternatives/
+mirror /etc/java*/
+mirror /usr/bin/java

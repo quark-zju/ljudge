@@ -1,8 +1,0 @@
-/(dev|lib|lib64|lib32)(/.*)?
-/usr(/lib(32|64)?(/.*)?)?
-/etc(/alternatives(/.*)?)?
-/etc/ld\.so\.(cache|conf(.*)?)
-/tmp
-# mono requires /proc
-/proc
-/usr/bin(/mono(-sgen)?)?

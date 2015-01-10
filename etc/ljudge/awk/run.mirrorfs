@@ -4,3 +4,5 @@ mirror /lib/
 mirror /lib64/
 mirror /usr/lib*/
 mirror /etc/ld.so.cache
+mirror /etc/alternatives/
+mirror /usr/bin/{gawk,awk}

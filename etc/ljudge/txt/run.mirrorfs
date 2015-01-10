@@ -2,5 +2,5 @@ mkdir /dev
 mkdir /tmp
 mirror /lib/
 mirror /lib64/
-mirror /usr/lib*/
 mirror /etc/ld.so.cache
+mirror /{usr/,}bin/cat

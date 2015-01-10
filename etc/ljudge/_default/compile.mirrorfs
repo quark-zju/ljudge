@@ -7,8 +7,7 @@ mirror /lib/
 mirror /lib64/
 # ghc on Debian requires /var/lib/ghc
 mirror /var/lib/
-mirror /etc/ld.so.*
-mirror /etc/ld.so.conf.d/
+mirror /etc/ld.so.cache
 # debian
 mirror /etc/alternatives/
 # java

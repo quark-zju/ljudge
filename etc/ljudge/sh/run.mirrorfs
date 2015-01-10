@@ -1,0 +1,7 @@
+mkdir /dev
+mkdir /tmp
+mirror /lib/
+mirror /lib64/
+mirror /usr/lib*/
+mirror /etc/ld.so.cache
+mirror /{usr/,}bin/{awk,gawk,bash,bc,cat,cut,dc,echo,expr,factor,false,fmt,fold,grep,head,join,printf,sed,seq,shuf,sort,split,tac,tail,test,true,tsort,uniq,wc}

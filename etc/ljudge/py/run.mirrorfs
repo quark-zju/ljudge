@@ -1,0 +1,10 @@
+mkdir /dev
+mkdir /tmp
+mirror /lib/
+mirror /lib64/
+mirror /usr/lib*/
+mirror /etc/ld.so.cache
+mirror /etc/alternatives/
+# required by python
+mirror /etc/passwd
+mirror /usr/bin/python{,2*,3*}

@@ -1,3 +1,0 @@
-/(dev|tmp|lib|lib64|lib32)(/.*)?
-/usr(/lib(32|64)?(/.*)?)?
-(/usr)?/bin(/(\[|g?awk|bash|bc|cat|cut|dc|echo|expr|factor|false|fmt|fold|grep|head|join|printf|sed|seq|shuf|sort|split|tac|tail|test|true|tsort|uniq|uname|wc))?
