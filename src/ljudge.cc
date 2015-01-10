@@ -973,6 +973,34 @@ static void do_check() {
     }
   }
 
+  { // kernel config
+    string kernel_config;
+    // Arch Linux puts kernel config at /proc/config.gz
+    // Debian puts kernel config at /boot/config-`uname -r`
+    if (fs::is_accessible("/proc/config.gz")) {
+      kernel_config = check_output("zcat /proc/config.gz");
+    } else {
+      string uname_r = string_chomp(check_output("uname -r"));
+      string config_path = "/boot/config-" + uname_r;
+      if (fs::is_accessible(config_path)) {
+        kernel_config = fs::read(config_path);
+      }
+    }
+    if (kernel_config.empty()) {
+        print_checkfail(
+            "kernel config not found",
+            "Related checks are skipped. Please make sure\n"
+            "the kernel is compiled with\n"
+            "CONFIG_FANOTIFY_ACCESS_PERMISSIONS", 'W');
+    } else {
+      print_checkpoint(
+          "kernel supports fanotify permission check",
+          kernel_config.find("CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y") != string::npos,
+          "CONFIG_FANOTIFY_ACCESS_PERMISSIONS not found.\n"
+          "lrun --fopen-filter will not work properly.");
+    }
+  }
+
   cleanup_exit(0);
 }
 
