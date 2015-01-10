@@ -17,6 +17,7 @@
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -59,6 +60,7 @@ namespace j = picojson;
 #define SUBDIR_USER_CODE "code"
 #define SUBDIR_CHECKER "checker"
 #define SUBDIR_TEMP "tmp"
+#define SUBDIR_KERNEL_CONFIG_CACHE "kconfig"
 
 // envs (config file name prefixes)
 #define ENV_CHECK "check"
@@ -470,21 +472,66 @@ static list<string> get_override_lrun_args(const string& etc_dir, const string& 
   return result;
 }
 
+static string uname_r() {
+  struct utsname buf;
+  uname(&buf);
+  return buf.release;
+}
+
+static bool is_fopen_filter_supported(const string& cache_dir) {
+  // annoying, but we have to do this check...
+  // otherwise we won't work on a Debian stock kernel if --fopen-filter is used in lrun args.
+  bool result = true;  // most distros enable it, Arch, Ubuntu, Fedora ... except for Debian
+  string release = uname_r();
+  // read result from cache first. If our detection is incorrect, the user is able to
+  // write the cache file to override it.
+  string cached_result_path = fs::join(cache_dir, SUBDIR_KERNEL_CONFIG_CACHE, "CONFIG_FANOTIFY_ACCESS_PERMISSIONS");
+  if (fs::is_accessible(cached_result_path)) {
+    result = ((fs::read(cached_result_path) + " ")[0] == 'y');
+  } else {
+    string kconfig_path = "/boot/config-" + release;  // only consider debian
+    if (fs::is_accessible(kconfig_path)) {
+      string kconfig_content = fs::read(kconfig_path);
+      if (kconfig_content.find("CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y") == string::npos) {
+        result = false;
+      }
+    }
+    enforce_mkdir_p(fs::dirname(cached_result_path));
+    fs::write(cached_result_path, result ? "y" : "n");
+  }
+  return result;
+}
+
 // try to keep only lrun "safe" args
 template<typename L>
-static L filter_user_lrun_args(const L& items) {
+static L filter_user_lrun_args(const L& items, const string& cache_dir) {
   L result;
-  int next_safe = 0;
+  int next_safe = 0, next_ignored = 0;
   for (__typeof(items.begin()) it = items.begin(); it != items.end(); ++it) {
     string item = string(*it);
     if (next_safe > 0) {
-      result.push_back(item);
+      if (next_ignored == 0) {
+        result.push_back(item);
+      } else {
+        --next_ignored;
+      }
       --next_safe;
       continue;
     }
     if (item == "--syscalls" || item == "--domainname" || item == "--hostname" || item == "--ostype" \
         || item == "--osrelease" || item == "--osversion") {
       next_safe = 1;
+    } else if (item == "--fopen-filter") {
+      next_safe = 2;
+      if (!is_fopen_filter_supported(cache_dir)) {
+        next_ignored = next_safe;
+        static bool warned = false;
+        if (!warned) {
+          errno = 0;
+          log_warn("You system does not support --fopen-filter. The kernel must be compiled with %s", "CONFIG_FANOTIFY_ACCESS_PERMISSIONS");
+          continue;
+        }
+      }
     } else {
       log_info("lrun arg '%s' is unsafe, dropping it and following args", item.c_str());
       break;
@@ -980,8 +1027,7 @@ static void do_check() {
     if (fs::is_accessible("/proc/config.gz")) {
       kernel_config = check_output("zcat /proc/config.gz");
     } else {
-      string uname_r = string_chomp(check_output("uname -r"));
-      string config_path = "/boot/config-" + uname_r;
+      string config_path = "/boot/config-" + uname_r();
       if (fs::is_accessible(config_path)) {
         kernel_config = fs::read(config_path);
       }
@@ -1711,8 +1757,8 @@ static CompileResult compile_code(const string& etc_dir, const string& cache_dir
     lrun_args.append(limit);
 
     map<string, string> mappings = get_mappings(src_name, exe_name, dest);
-    lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, ENV_COMPILE EXT_LRUN_ARGS), mappings)));
-    lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, ENV_EXTRA EXT_LRUN_ARGS), mappings)));
+    lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, ENV_COMPILE EXT_LRUN_ARGS), mappings), cache_dir));
+    lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, ENV_EXTRA EXT_LRUN_ARGS), mappings), cache_dir));
     // Override (hide) files using user provided options
     lrun_args.append(get_override_lrun_args(etc_dir, cache_dir, code_path, ENV_COMPILE, chroot_path));
     lrun_args.append("--");
@@ -1796,8 +1842,8 @@ static LrunResult run_code(
     lrun_args.append(get_override_lrun_args(etc_dir, cache_dir, code_path, ENV_RUN, chroot_path, run_cmd.size() >= 2 ? (*run_cmd.begin()) : "" ));
     lrun_args.append(limit);
     lrun_args.append(escape_list(extra_lrun_args, mappings));
-    lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, format("%s%s", env, EXT_LRUN_ARGS)), mappings)));
-    lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, ENV_EXTRA EXT_LRUN_ARGS), mappings)));
+    lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, format("%s%s", env, EXT_LRUN_ARGS)), mappings), cache_dir));
+    lrun_args.append(filter_user_lrun_args(escape_list(get_config_list(etc_dir, code_path, ENV_EXTRA EXT_LRUN_ARGS), mappings), cache_dir));
     lrun_args.append("--");
     lrun_args.append(escape_list(run_cmd, mappings));
     lrun_args.append(escape_list(extra_argv, mappings));
