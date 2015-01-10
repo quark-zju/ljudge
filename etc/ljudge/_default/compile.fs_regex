@@ -1,4 +1,0 @@
-/(dev|bin|lib|lib64|usr|tmp|proc)(/.*)?
-/etc(/ld\..*|/java.*|/mono.*|/php.*|/python.*|/golang.*|/alternatives.*|/perl.*|/fpc.*|/dmd.*)?
-# ghc on Debian requires /var/lib/ghc
-/var(/lib(/.*)?)?

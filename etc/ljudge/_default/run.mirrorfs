@@ -1,0 +1,7 @@
+mkdir /dev
+mkdir /tmp
+mirror /lib
+mirror /lib64
+mirror /usr/lib*/
+mirror /etc/ld.so.*
+mirror /etc/ld.so.conf.d/

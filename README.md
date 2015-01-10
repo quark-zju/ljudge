@@ -6,20 +6,17 @@ ljudge is a command line tool to compile, run, check its output and generate a J
 Dependencies
 ------------
 * [lrun](https://github.com/quark-zju/lrun), used for sandboxing the untrusted program
-* [filterefs](https://github.com/quark-zju/filterefs), used for providing chroot directories
 
-lrun and filterefs both provide amd64 .deb packages. You can install (and setup) them using:
+lrun provides amd64 .deb packages. You can install (and setup) them using:
 
 ```bash
-wget https://github.com/quark-zju/filterefs/releases/download/v0.5/filterefs_0.5.0_amd64.deb
-wget https://github.com/quark-zju/lrun/releases/download/v1.0.0/lrun_1.0.0_amd64.deb
-sudo apt-get install fuse libfuse2 libseccomp2
-sudo dpkg -i filterefs_0.5.0_amd64.deb lrun_1.0.0_amd64.deb
+wget https://github.com/quark-zju/lrun/releases/download/v1.1.2/lrun_1.1.2_amd64.deb
+# for Debian 7, you may need to add wheezy-backports apt source first
+sudo apt-get install libseccomp2
+sudo dpkg -i lrun_1.0.0_amd64.deb
 
 # following steps are required to pass ljudge --check
-sudo gpasswd -a $USER fuse
 sudo gpasswd -a $USER lrun
-sudo sed -i 's/#user_allow_other/user_allow_other/' /etc/fuse.conf
 ```
 
 Installation

@@ -1,0 +1,23 @@
+mkdir /dev/
+mkdir /proc/
+mkdir /tmp/
+mirror /bin/
+mirror /usr/
+mirror /lib/
+mirror /lib64/
+# ghc on Debian requires /var/lib/ghc
+mirror /var/lib/
+mirror /etc/ld.so.*
+mirror /etc/ld.so.conf.d/
+# debian
+mirror /etc/alternatives/
+# java
+mirror /etc/java*/
+# golang
+mirror /etc/golang/
+# free pascal
+mirror /etc/fpc*.cfg
+# dlang
+mirror /etc/dmd.conf
+# mono
+mirror /etc/mono/

@@ -49,11 +49,13 @@ namespace j = picojson;
 
 #define LJUDGE_VERSION "v0.5.0"
 
+// lrun-mirrorfs chroot path (lrun-mirrorfs --show-root)
+#define CHROOT_BASE_DIR "/run/lrun/mirrorfs"
+
 // truncate log size, ex. compiler log, stdout, stderr, etc.
 #define TRUNC_LOG 65535
 
 // sub-directory names in cache_dir
-#define SUBDIR_CHROOT "chroot"
 #define SUBDIR_USER_CODE "code"
 #define SUBDIR_CHECKER "checker"
 #define SUBDIR_TEMP "tmp"
@@ -68,11 +70,10 @@ namespace j = picojson;
 // config file extensions
 #define EXT_CMD_LIST ".cmd_list"
 #define EXT_EXE_NAME ".exe_name"
-#define EXT_FS_REGEX ".fs_regex"
+#define EXT_MIRRRORFS ".mirrorfs"
 #define EXT_LRUN_ARGS ".lrun_args"
 #define EXT_NAME ".name"
 #define EXT_OPT_FAKE_PASSWD "fake_passwd"
-#define EXT_OPT_BIND_COMMON_LIBS "bind_common_libs"
 #define EXT_FS_OVERRIDE ".fs_override"
 #define EXT_SRC_NAME ".src_name"
 
@@ -450,25 +451,6 @@ static list<string> get_override_lrun_args(const string& etc_dir, const string& 
     result.push_back(passwd_path);
   }
 
-  // mount --bind common libraries so that memory counter will be more accurate
-  // if this step is skipped, cgroup memory counter will add fuse related memory
-  if (get_config_content(etc_dir, code_path, format("%s%s", env, EXT_OPT_BIND_COMMON_LIBS), OPTION_VALUE_TRUE) == OPTION_VALUE_TRUE) {
-    const string common_paths[] = {
-      "/usr/lib", "/etc/alternatives", "/etc/ld.so.cache", "/etc/ld.so.conf", "/etc/ld.so.conf.d", "/lib", "/lib64",
-      interpreter_name.empty() ? "" : fs::join("/usr/bin", interpreter_name),
-      interpreter_name.empty() ? "" : fs::join("/etc/alternatives", interpreter_name),
-    };
-    for (size_t i = 0; i < sizeof(common_paths) / sizeof(common_paths[0]); ++i) {
-      const string& path = common_paths[i];
-      if (path.empty()) continue;
-      const string chrooted_path = fs::join(chroot_path, path);
-      if (!fs::exists(chrooted_path) || fs::is_symlink(chrooted_path)) continue;
-      result.push_back("--bindfs-ro");
-      result.push_back(chrooted_path);
-      result.push_back(path);
-    }
-  }
-
   // override_dir in config
   string override_dir = get_config_path(etc_dir, code_path, format("%s%s", env, EXT_FS_OVERRIDE));
   if (override_dir.empty()) return result;
@@ -578,48 +560,37 @@ static void ensure_system(const string& cmd) {
   if (ret != 0) fatal("failed to run %s", cmd.c_str());
 }
 
-static string prepare_chroot(const string& etc_dir, const string& code_path, const string& env, const string& base_dir) {
-  string readable_config = get_config_path(etc_dir, code_path, format("%s%s", env, EXT_FS_REGEX));
-  log_debug("prepare_chroot: %s", readable_config.c_str());
+static string prepare_chroot(const string& etc_dir, const string& code_path, const string& env) {
+  string mirrorfs_config_path = get_config_path(etc_dir, code_path, format("%s%s", env, EXT_MIRRRORFS));
+  if (mirrorfs_config_path.empty()) fatal("cannot find mirrorfs config");
 
-  string content = "";  // content used for sha1
-  if (!readable_config.empty()) content += format("r%s", fs::read(readable_config));
+  string content = fs::read(mirrorfs_config_path);
+  string name = sha1(content);
+  string dest = fs::join(CHROOT_BASE_DIR, name);
 
-  string dest = fs::join(base_dir, sha1(content));
+  log_debug("prepare_chroot: config = %s, dest = %s", mirrorfs_config_path.c_str(), dest.c_str());
 
   {
     // lock both processes and threads
 #ifdef _OPENMP
     ScopedOMPLock("chroot_lock");
 #endif
-    enforce_mkdir_p(base_dir);
-    fs::ScopedFileLock base_dir_lock(base_dir);
+    // enforce_mkdir_p(base_dir);
+    fs::ScopedFileLock chroot_dir_lock(mirrorfs_config_path);
 
-    if (fs::is_mounted(dest)) {
+    if (fs::is_accessible(dest, F_OK)) {
       log_debug("already mounted: %s. use it directly", dest.c_str());
       return dest;
     }
 
-    if (fs::is_disconnected(dest)) {
-      log_info("%s is disconnected. try to umount it", dest.c_str());
-      int ret = system(format("fusermount -u %s", shell_escape(dest)).c_str());
-      if (ret != 0) log_info("failed to umount %s", dest.c_str());
-    }
-
-    enforce_mkdir_p(dest);
-
-    string cmd = format("filterefs %s -o allow_other,nonempty", shell_escape(dest));
-    if (!readable_config.empty()) {
-      cmd += format(" --readable-config %s ", shell_escape(readable_config));
-      string comment = fs::join(fs::basename(fs::dirname(readable_config)), env);
-      cmd += format(" --comment %s ", comment);
-    }
+    string comment = fs::join(fs::basename(fs::dirname(mirrorfs_config_path)), env);
+    string cmd = format("lrun-mirrorfs --name %s --setup %s --comment %s >/dev/null", name, shell_escape(mirrorfs_config_path), comment);
     ensure_system(cmd);
 
     // wait 5s until mount finishes
     int mounted = 0;
     for (int i = 0; i < 50; ++i) {
-      if (fs::is_mounted(dest)) {
+      if (fs::is_accessible(dest, F_OK)) {
         mounted = 1;
         break;
       }
@@ -941,7 +912,11 @@ static void do_check() {
     print_checkpoint(
         "lrun supports --bindfs-ro",
         lrun_help.find("--bindfs-ro") != string::npos,
-        "Please upgrade lrun to at least v1.0.0");
+        "Please upgrade lrun to at least v1.1.2");
+    print_checkpoint(
+        "lrun supports --fopen-filter",
+        lrun_help.find("--fopen-filter") != string::npos,
+        "Please upgrade lrun to at least v1.1.2");
     print_checkpoint(
         "lrun actually works",
         check_output("lrun echo foofoo 2>" DEV_NULL).find("foofoo") != string::npos,
@@ -949,53 +924,14 @@ static void do_check() {
         "and try `lrun --debug echo foo` to get some help.");
   } while (false);
 
-  do { // filterefs, fuse
-    string filterefs_path = which("filterefs");
-    if (filterefs_path.empty()) {
+  do { // lrun-mirrorfs
+    string mirrorfs_path = which("lrun-mirrorfs");
+    if (mirrorfs_path.empty()) {
       print_checkfail(
-          "filterefs not found",
-          "filterefs is required. Please install it.");
+          "lrun-mirrorfs not found",
+          "lrun-mirrorfs is required. Please upgrade lrun to v1.1.2");
       break;
     }
-    if (!(fs::exists("/dev/fuse"))) {
-      print_checkfail(
-          "fuse not detected",
-          "Please install fuse first");
-      break;
-    }
-
-    print_checkpoint(
-        "current user can write /dev/fuse",
-        fs::is_accessible("/dev/fuse", W_OK),
-        "ljudge requires FUSE-based program filterefs to work properly,\n"
-        "which needs write access to /dev/fuse. Some OS requires the user\n"
-        "to be a member of `fuse` group to write /dev/fuse. If that is the\n"
-        "case, run:\n\n" +
-        format("  sudo gpasswd -a %s fuse", username));
-
-    string filterefs_help = check_output("filterefs --help 2>&1");
-    print_checkpoint(
-        "filterefs supports \"re://\" config path",
-        filterefs_help.find("re://") != string::npos,
-        "Please upgrade filterefs to at least v0.3");
-    if (!fs::is_accessible("/etc/fuse.conf")) {
-      print_checkfail(
-          "/etc/fuse.conf is not accessible",
-          "Skip related checks.\n"
-          "Some OS requires the user to be a member of `fuse` group to\n"
-          "read that. If that is the case, run:\n\n" +
-          format("  sudo gpasswd -a %s fuse", username), '!');
-      break;
-    }
-    string fuse_conf = fs::read("/etc/fuse.conf");
-    print_checkpoint(
-        "fuse.conf has user_allow_other",
-        ("\n" + fuse_conf).find("\nuser_allow_other") != string::npos,
-        "ljudge uses filterefs to provide chroot roots. To be able\n"
-        "to chroot into a FUSE mount point, it must be mounted with\n"
-        "`-o allow_other`. By default, FUSE does not allow non-root\n"
-        "users to use `allow_other`. To fix this issue, run:\n\n"
-        "  sudo bash -c 'echo user_allow_other >> /etc/fuse.conf'");
   } while (false);
 
   { // kernel
@@ -1738,7 +1674,7 @@ static CompileResult compile_code(const string& etc_dir, const string& cache_dir
       break;
     }
 
-    string chroot_path = prepare_chroot(etc_dir, code_path, ENV_COMPILE, fs::join(cache_dir, SUBDIR_CHROOT));
+    string chroot_path = prepare_chroot(etc_dir, code_path, ENV_COMPILE);
 
     LrunArgs lrun_args;
     lrun_args.append_default();
@@ -1808,7 +1744,7 @@ static LrunResult run_code(
 ) {
   log_debug("run_code: %s", code_path.c_str());
 
-  string chroot_path = prepare_chroot(etc_dir, code_path, env, fs::join(cache_dir, SUBDIR_CHROOT));
+  string chroot_path = prepare_chroot(etc_dir, code_path, env);
   string exe_name = get_config_content(etc_dir, code_path, ENV_COMPILE EXT_EXE_NAME, DEFAULT_EXE_NAME);
 
   // assume it is precompiled
