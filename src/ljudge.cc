@@ -615,7 +615,7 @@ static string prepare_chroot(const string& etc_dir, const string& code_path, con
   string name = sha1(content);
   string dest = fs::join(CHROOT_BASE_DIR, name);
 
-  log_debug("prepare_chroot: config = %s, dest = %s", mirrorfs_config_path.c_str(), dest.c_str());
+  log_debug("prepare_chroot: config = %s dest = %s", mirrorfs_config_path.c_str(), dest.c_str());
 
   {
     // lock both processes and threads
@@ -626,12 +626,12 @@ static string prepare_chroot(const string& etc_dir, const string& code_path, con
     fs::ScopedFileLock chroot_dir_lock(mirrorfs_config_path);
 
     if (fs::is_accessible(dest, F_OK)) {
-      log_debug("already mounted: %s. use it directly", dest.c_str());
+      log_debug("already mounted: %s", dest.c_str());
       return dest;
     }
 
     string comment = fs::join(fs::basename(fs::dirname(mirrorfs_config_path)), env);
-    string cmd = format("lrun-mirrorfs --name %s --setup %s --comment %s >/dev/null", name, shell_escape(mirrorfs_config_path), comment);
+    string cmd = format("lrun-mirrorfs --name %s --setup %s --comment %s 1>&2", name, shell_escape(mirrorfs_config_path), comment);
     ensure_system(cmd);
 
     // wait 5s until mount finishes
