@@ -1,3 +1,11 @@
+ljudge (0.6.0) unstable; urgency=low
+
+  * Replace filterefs with lrun-mirrorfs.
+  * Update configs to use lrun fopen-filter.
+  * Fix a segfault issue.
+
+ -- Jun Wu <quark@lihdd.net>  Sun, 11 Jan 2015 10:42:00 +0800
+
 ljudge (0.5.0) unstable; urgency=low
 
   * Support check output using SHA1.
