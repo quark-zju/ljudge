@@ -10,10 +10,10 @@ Dependencies
 lrun provides amd64 .deb packages. You can install (and setup) them using:
 
 ```bash
-wget https://github.com/quark-zju/lrun/releases/download/v1.1.2/lrun_1.1.2_amd64.deb
+wget https://github.com/quark-zju/lrun/releases/download/v1.1.3/lrun_1.1.3_amd64.deb
 # for Debian 7, you may need to add wheezy-backports apt source first
 sudo apt-get install libseccomp2
-sudo dpkg -i lrun_1.0.0_amd64.deb
+sudo dpkg -i lrun_1.1.3_amd64.deb
 
 # following steps are required to pass ljudge --check
 sudo gpasswd -a $USER lrun

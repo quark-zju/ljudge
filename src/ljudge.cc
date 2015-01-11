@@ -959,11 +959,11 @@ static void do_check() {
     print_checkpoint(
         "lrun supports --bindfs-ro",
         lrun_help.find("--bindfs-ro") != string::npos,
-        "Please upgrade lrun to at least v1.1.2");
+        "Please upgrade lrun to at least v1.1.3");
     print_checkpoint(
         "lrun supports --fopen-filter",
         lrun_help.find("--fopen-filter") != string::npos,
-        "Please upgrade lrun to at least v1.1.2");
+        "Please upgrade lrun to at least v1.1.3");
     print_checkpoint(
         "lrun actually works",
         check_output("lrun echo foofoo 2>" DEV_NULL).find("foofoo") != string::npos,
@@ -976,7 +976,7 @@ static void do_check() {
     if (mirrorfs_path.empty()) {
       print_checkfail(
           "lrun-mirrorfs not found",
-          "lrun-mirrorfs is required. Please upgrade lrun to v1.1.2");
+          "lrun-mirrorfs is required. Please upgrade lrun to v1.1.3");
       break;
     }
   } while (false);
