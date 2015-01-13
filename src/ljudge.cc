@@ -241,14 +241,23 @@ struct CompileResult {
 
 #ifdef _OPENMP
 static std::map<string, omp_lock_t> omp_locks;
+static omp_lock_t omp_locks_lock = omp_lock_t();
+
+struct InitOmpLocksLock {
+  InitOmpLocksLock() {
+    omp_init_lock(&omp_locks_lock);
+  }
+} init_omp_locks_lock;
 
 struct ScopedOMPLock {
   ScopedOMPLock(const string& name) {
+    omp_set_lock(&omp_locks_lock);
     if (!omp_locks.count(name)) {
       omp_locks[name] = omp_lock_t();
       omp_init_lock(&omp_locks[name]);
     }
     plock_ = &omp_locks[name];
+    omp_unset_lock(&omp_locks_lock);
     omp_set_lock(plock_);
   }
   ~ScopedOMPLock() {
