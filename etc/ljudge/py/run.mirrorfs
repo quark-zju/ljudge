@@ -6,5 +6,5 @@ mirror /usr/lib*/
 mirror /etc/ld.so.cache
 mirror /etc/alternatives/
 # required by python
-mirror /etc/passwd
+touch /etc/passwd
 mirror /usr/bin/python{,2*,3*}
