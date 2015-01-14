@@ -123,6 +123,8 @@ struct Testcase {
   string output_path;
   string output_sha1;
   string output_pe_sha1;
+  string user_stdout_path;
+  string user_stderr_path;
   Limit runtime_limit;
   Limit checker_limit;
 };
@@ -665,6 +667,7 @@ static void print_usage() {
       "         [--checker-code (or -c) checker-code-path\n"
       "         [--testcase] --input (or -i) input-path --output (or -o) output-path\n"
       "         (or: --input input-path --output-sha1 ac-chomp-sha1,pe-sha1)\n"
+      "         [--user-stdout path] [--user-stderr path]\n"
       "         [[--testcase] --input path --output path (or --output-sha1 sha1)] ...\n"
       "\n"
       "Compile, run and print response JSON:\n"
@@ -1226,7 +1229,8 @@ static Options parse_cli_options(int argc, const char *argv[]) {
 #define NEXT_NUMBER_ARG (to_number(NEXT_STRING_ARG))
 #define APPEND_TEST_CASE if (!current_case.input_path.empty()) { \
   options.cases.push_back(current_case); \
-  current_case.input_path = current_case.output_path = current_case.output_sha1 = "";}
+  current_case.input_path = current_case.output_path = current_case.output_sha1 =\
+  current_case.user_stdout_path = current_case.user_stderr_path = ""; }
 
   for (int i = 1; i < argc; ++i) {
     string option;
@@ -1269,6 +1273,12 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     } else if (option == "output" || option == "o") {
       REQUIRE_NARGV(1);
       current_case.output_path = NEXT_STRING_ARG;
+    } else if (option == "user-stdout") {
+      REQUIRE_NARGV(1);
+      current_case.user_stdout_path = NEXT_STRING_ARG;
+    } else if (option == "user-stderr") {
+      REQUIRE_NARGV(1);
+      current_case.user_stderr_path = NEXT_STRING_ARG;
     } else if (option == "output-sha1" || option == "osha1") {
       // --output-sha1 ac-sha1(chomp),pe-sha1
       REQUIRE_NARGV(1);
@@ -1998,8 +2008,8 @@ static j::object run_testcase(const string& etc_dir, const string& cache_dir, co
   j::object result;
 
   // prepare output file path
-  string stdout_path = get_temp_file_path(cache_dir, "out");
-  string stderr_path = keep_stderr ? get_temp_file_path(cache_dir, "err") : DEV_NULL;
+  string stdout_path = testcase.user_stdout_path.empty() ? get_temp_file_path(cache_dir, "out") : testcase.user_stdout_path;
+  string stderr_path = testcase.user_stderr_path.empty() ? (keep_stderr ? get_temp_file_path(cache_dir, "err") : DEV_NULL) : testcase.user_stderr_path;
   LrunResult run_result;
   do {
     // should flock stdout_path, but since we use different tmp path, and it is scoped in pid dir. no more necessary
