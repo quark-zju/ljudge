@@ -846,6 +846,7 @@ static void print_version() {
   cleanup_exit(0);
 }
 
+// like Python's subprocess.check_output but without the check part
 static string check_output(const string& command, bool capture_stderr = false) {
   string result;
   do {
@@ -1112,7 +1113,6 @@ static void fetch_compiler_versions(std::vector<j::value>& result, const string&
       jo["version"] = j::value(version);
     } else {
       if (only_present) continue;
-      else jo["version"] = j::value();
     }
 
     // get compiler / interpreter name
@@ -1465,7 +1465,7 @@ static void check_options(const Options& options) {
   }
 
   if (options.skip_checker && !options.checker_code_path.empty()) {
-    errors.push_back("--capture-user-output conflicts with --checker-code");
+    errors.push_back("--skip-checker conflicts with --checker-code");
   }
 
   if (getuid() == 0) {
