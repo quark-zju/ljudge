@@ -1088,7 +1088,7 @@ static string scan_version_string(const string& content) {
   return result;
 }
 
-static void fetch_compiler_versions(j::object& result, const string& etc_dir, bool only_present = true) {
+static void fetch_compiler_versions(std::vector<j::value>& result, const string& etc_dir, bool only_present = true) {
   // scan etc_dir
   list<string> exts = fs::scandir(etc_dir);
   for (__typeof(exts.begin()) it = exts.begin(); it != exts.end(); ++it) {
@@ -1129,14 +1129,15 @@ static void fetch_compiler_versions(j::object& result, const string& etc_dir, bo
     if (!compile_cmds.empty()) jo["compile_cmd"] = j::value(shell_escape(compile_cmds));
     if (!run_cmds.empty()) jo["run_cmd"] = j::value(shell_escape(run_cmds));
     jo["name"] = j::value(name);
-    result[ext] = j::value(jo);
+    jo["ext"] = j::value(ext);
+    result.push_back(j::value(jo));
   }
 }
 
 static void print_compiler_versions(const Options& opts, bool only_present = true) {
-  j::object jo;
-  fetch_compiler_versions(jo, opts.etc_dir, only_present);
-  printf("%s", j::value(jo).serialize(opts.pretty_print).c_str());
+  std::vector<j::value> arr;
+  fetch_compiler_versions(arr, opts.etc_dir, only_present);
+  printf("%s", j::value(arr).serialize(opts.pretty_print).c_str());
   exit(0);
 }
 
