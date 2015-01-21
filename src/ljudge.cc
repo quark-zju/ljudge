@@ -1126,8 +1126,8 @@ static void fetch_compiler_versions(std::vector<j::value>& result, const string&
     else if (name.empty() && !run_cmds.empty()) name = *run_cmds.begin();
     else if (name.empty()) name = ext;
 
-    if (!compile_cmds.empty()) jo["compile_cmd"] = j::value(shell_escape(compile_cmds));
-    if (!run_cmds.empty()) jo["run_cmd"] = j::value(shell_escape(run_cmds));
+    if (!compile_cmds.empty()) jo["compileCmd"] = j::value(shell_escape(compile_cmds));
+    if (!run_cmds.empty()) jo["runCmd"] = j::value(shell_escape(run_cmds));
     jo["name"] = j::value(name);
     jo["ext"] = j::value(ext);
     result.push_back(j::value(jo));
