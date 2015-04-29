@@ -1,2 +1,3 @@
-clisp
+sbcl
+--script
 $src
