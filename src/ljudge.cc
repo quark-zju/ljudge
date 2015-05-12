@@ -48,7 +48,7 @@ namespace j = picojson;
 
 #define fatal(...) { fprintf(stderr, __VA_ARGS__); fprintf(stderr, "\n"); cleanup_exit(1); }
 
-#define LJUDGE_VERSION "v0.6.0"
+#define LJUDGE_VERSION "v0.6.1"
 
 // lrun-mirrorfs chroot path (lrun-mirrorfs --show-root)
 #define CHROOT_BASE_DIR "/run/lrun/mirrorfs"
