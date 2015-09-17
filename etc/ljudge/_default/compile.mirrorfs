@@ -20,3 +20,5 @@ mirror /etc/fpc*.cfg
 mirror /etc/dmd.conf
 # mono
 mirror /etc/mono/
+# racket
+mirror /etc/racket/
