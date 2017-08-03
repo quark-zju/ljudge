@@ -1,0 +1,5 @@
+swiftc
+$src
+-O
+-o
+$exe
