@@ -1,2 +1,4 @@
 javac
+-encoding
+UTF8
 $src
