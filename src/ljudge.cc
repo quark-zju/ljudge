@@ -219,6 +219,8 @@ struct LrunArgs : public vector<string> {
     }
     append("--chdir", "/tmp");
     append("--env", "ONLINE_JUDGE", "1");
+    append("--env", "LANG", "en_US.UTF-8");
+    append("--env", "LC_ALL", "en_US.UTF-8");
     append("--env", "HOME", "/tmp");
     append("--env", "PATH", "/usr/bin:/bin:/etc/alternatives:/usr/local/bin");
     // Pass as-is
