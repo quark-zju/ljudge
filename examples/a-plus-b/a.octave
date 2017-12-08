@@ -1,0 +1,8 @@
+while (true)
+    a = scanf("%d", [1, 2]);
+    if (! feof(stdin()) )
+        printf("%d\n", sum(a));
+    else
+        break
+    endif
+endwhile

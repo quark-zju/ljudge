@@ -224,7 +224,7 @@ struct LrunArgs : public vector<string> {
     append("--env", "HOME", "/tmp");
     append("--env", "PATH", "/usr/bin:/bin:/etc/alternatives:/usr/local/bin");
     // Pass as-is
-    static const char pass_envs[][16] = {"JAVA_HOME"};
+    static const char pass_envs[][16] = {"JAVA_HOME", "R_HOME"};
     for (size_t i = 0; i < sizeof(pass_envs) / sizeof(pass_envs[0]); ++i) {
       const char *env_val = getenv(pass_envs[i]);
       if (env_val) append("--env", pass_envs[i], env_val);

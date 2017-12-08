@@ -1,0 +1,10 @@
+octave-cli
+--no-gui
+--no-history
+--no-init-file
+--no-init-path
+--no-line-editing
+--no-site-file
+--no-window-system
+--norc
+$src
