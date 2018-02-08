@@ -1,5 +1,4 @@
 fpc
--Sd
 -dONLINE_JUDGE
 -O2
 $src
