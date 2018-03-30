@@ -3,6 +3,8 @@ mkdir /tmp
 mirror /lib/
 mirror /lib64/
 mirror /usr/lib*/
+mirror /usr/local/lib/python2.7/dist-packages/
+mirror /usr/local/lib/python3.6/dist-packages/
 mirror /etc/ld.so.cache
 mirror /etc/alternatives/
 # required by python
