@@ -22,3 +22,5 @@ mirror /etc/dmd.conf
 mirror /etc/mono/
 # racket
 mirror /etc/racket/
+# vb
+mirror /etc/localtime

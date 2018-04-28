@@ -1,3 +1,4 @@
 vbnc2
 # vbnc (4.0 profile) hardly works. just use stable vbnc2 (2.0 profile)
+/libpath:/usr/lib/mono/4.5
 $src
