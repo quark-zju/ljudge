@@ -4,7 +4,7 @@ g++
 -fno-tree-ch
 -O2
 -Wall
--std=c++11
+-std=c++14
 -pipe
 $src
 -lm
