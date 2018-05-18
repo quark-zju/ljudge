@@ -108,6 +108,7 @@ namespace TestcaseResult {
   const string FLOAT_POINT_EXCEPTION = "FLOAT_POINT_EXCEPTION";
   const string SEGMENTATION_FAULT = "SEGMENTATION_FAULT";
   const string WRONG_ANSWER = "WRONG_ANSWER";
+  const string SKIPPED = "SKIPPED";
   /* [[[end]]] */
 };
 
@@ -143,6 +144,7 @@ struct Options {
   bool keep_stderr;
   bool direct_mode;  // if true, just run the program and prints the result
   int nthread;  // how many testcases can run in parallel. default is decided by omp (cpu cores
+  bool skip_on_first_failure;  // skip test cases after first failure occured
 };
 
 struct LrunArgs : public vector<string> {
@@ -709,6 +711,7 @@ static void print_usage() {
 #ifdef _OPENMP
       "         [--threads n]\n"
 #endif
+      "         [--skip-on-first-failure]\n"
       "         [--max-cpu-time seconds] [--max-real-time seconds]\n"
       "         [--max-memory bytes] [--max-output bytes]\n"
       "         [--max-checker-cpu-time seconds] [--max-checker-real-time seconds]\n"
@@ -1252,6 +1255,7 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     options.keep_stderr = false;
     options.direct_mode = false;
     options.nthread = 0;
+    options.skip_on_first_failure = false;
     current_case.checker_limit = { 5, 10, 1 << 30, 1 << 30 };
     current_case.runtime_limit = { 1, 3, 1 << 26 /* 64M mem */, 1 << 25 /* 32M output */ };
     debug_level = getenv("DEBUG") ? 10 : 0;
@@ -1413,6 +1417,11 @@ static Options parse_cli_options(int argc, const char *argv[]) {
       REQUIRE_NARGV(1);
       options.nthread = NEXT_NUMBER_ARG;
 #endif
+    } else if (option == "skip-on-first-failure") {
+      if (options.nthread != 1) {
+        fatal("'skip-on-first-faiulure' must be applied with thread = 1")
+      }
+      options.skip_on_first_failure = true;
     } else {
       fatal("'%s' is not a valid option", argv[i]);
     }
@@ -2124,12 +2133,22 @@ static j::value run_testcases(const Options& opts) {
 
   vector<j::value> results;
   results.resize(opts.cases.size());
+  bool should_skip = false;
 #ifdef _OPENMP
   #pragma omp parallel for if (opts.nthread != 1 && opts.cases.size() > 1)
 #endif
   for (int i = 0; i < (int)opts.cases.size(); ++i) {
-    j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
-    results[i] = j::value(testcase_result);
+    if (opts.skip_on_first_failure && should_skip) {
+      j::object skipped_result;
+      skipped_result["result"] = j::value(TestcaseResult::SKIPPED);
+      results[i] = j::value(skipped_result);
+    } else {
+      j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
+      results[i] = j::value(testcase_result);
+      if (testcase_result["result"].to_str() != TestcaseResult::ACCEPTED) {
+        should_skip = true;
+      }
+    }
   }
   return j::value(results);
 }
