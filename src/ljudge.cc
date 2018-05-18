@@ -94,7 +94,7 @@ namespace j = picojson;
 namespace TestcaseResult {
   /* [[[cog
     import cog
-    for name in ['INTERNAL_ERROR', 'NON_ZERO_EXIT_CODE', 'MEMORY_LIMIT_EXCEEDED', 'TIME_LIMIT_EXCEEDED', 'OUTPUT_LIMIT_EXCEEDED', 'PRESENTATION_ERROR', 'ACCEPTED', 'RUNTIME_ERROR', 'FLOAT_POINT_EXCEPTION', 'SEGMENTATION_FAULT', 'WRONG_ANSWER']:
+    for name in ['INTERNAL_ERROR', 'NON_ZERO_EXIT_CODE', 'MEMORY_LIMIT_EXCEEDED', 'TIME_LIMIT_EXCEEDED', 'OUTPUT_LIMIT_EXCEEDED', 'PRESENTATION_ERROR', 'ACCEPTED', 'RUNTIME_ERROR', 'FLOAT_POINT_EXCEPTION', 'SEGMENTATION_FAULT', 'WRONG_ANSWER', 'SKIPPED']:
       cog.outl('const string %(name)s = "%(name)s";' % {'name': name})
   ]]] */
   const string INTERNAL_ERROR = "INTERNAL_ERROR";
@@ -108,6 +108,7 @@ namespace TestcaseResult {
   const string FLOAT_POINT_EXCEPTION = "FLOAT_POINT_EXCEPTION";
   const string SEGMENTATION_FAULT = "SEGMENTATION_FAULT";
   const string WRONG_ANSWER = "WRONG_ANSWER";
+  const string SKIPPED = "SKIPPED";
   /* [[[end]]] */
 };
 
@@ -143,6 +144,7 @@ struct Options {
   bool keep_stderr;
   bool direct_mode;  // if true, just run the program and prints the result
   int nthread;  // how many testcases can run in parallel. default is decided by omp (cpu cores
+  bool skip_on_first_failure;  // skip test cases after first failure occured
 };
 
 struct LrunArgs : public vector<string> {
@@ -709,6 +711,7 @@ static void print_usage() {
 #ifdef _OPENMP
       "         [--threads n]\n"
 #endif
+      "         [--skip-on-first-failure]\n"
       "         [--max-cpu-time seconds] [--max-real-time seconds]\n"
       "         [--max-memory bytes] [--max-output bytes]\n"
       "         [--max-checker-cpu-time seconds] [--max-checker-real-time seconds]\n"
@@ -785,7 +788,8 @@ static void print_json_schema() {
   "            \"FLOAT_POINT_EXCEPTION\",\n"
   "            \"SEGMENTATION_FAULT\",\n"
   "            \"RUNTIME_ERROR\",\n"
-  "            \"INTERNAL_ERROR\"\n"
+  "            \"INTERNAL_ERROR\",\n"
+  "            \"SKIPPED\"\n"
   "          ],\n"
   "          \"description\": \"Judge response for the test case\"\n"
   "        },\n"
@@ -801,15 +805,15 @@ static void print_json_schema() {
   "        },\n"
   "        \"time\": {\n"
   "          \"type\": \"number\",\n"
-  "          \"description\": \"CPU time used by the program, in seconds. Present only when \\\"exceed\\\" is missing\"\n"
+  "          \"description\": \"CPU time used by the program, in seconds. Present only when \\\"exceed\\\" is missing, and \\\"result\\\" is not \\\"SKIPPED\\\" or \\\"INTERNAL_ERROR\\\"\"\n"
   "        },\n"
   "        \"memory\": {\n"
   "          \"type\": \"number\",\n"
-  "          \"description\": \"Peak memory used by the program, in bytes. Present only when \\\"exceed\\\" is missing\"\n"
+  "          \"description\": \"Peak memory used by the program, in bytes. Present only when \\\"exceed\\\" is missing, and \\\"result\\\" is not \\\"SKIPPED\\\" or \\\"INTERNAL_ERROR\\\"\"\n"
   "        },\n"
   "        \"exitcode\": {\n"
   "          \"type\": \"number\",\n"
-  "          \"description\": \"Exit code of the program. Present only when the program exits normally\"\n"
+  "          \"description\": \"Exit code of the program. Present only when the program exits normally, and \\\"result\\\" is not \\\"SKIPPED\\\" or \\\"INTERNAL_ERROR\\\"\"\n"
   "        },\n"
   "        \"termsig\": {\n"
   "          \"type\": \"number\",\n"
@@ -1252,6 +1256,7 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     options.keep_stderr = false;
     options.direct_mode = false;
     options.nthread = 0;
+    options.skip_on_first_failure = false;
     current_case.checker_limit = { 5, 10, 1 << 30, 1 << 30 };
     current_case.runtime_limit = { 1, 3, 1 << 26 /* 64M mem */, 1 << 25 /* 32M output */ };
     debug_level = getenv("DEBUG") ? 10 : 0;
@@ -1413,6 +1418,12 @@ static Options parse_cli_options(int argc, const char *argv[]) {
       REQUIRE_NARGV(1);
       options.nthread = NEXT_NUMBER_ARG;
 #endif
+    } else if (option == "skip-on-first-failure") {
+      if (options.nthread > 1) {
+        fatal("'skip-on-first-faiulure' does not work with threads")
+      }
+      options.nthread = 1;
+      options.skip_on_first_failure = true;
     } else {
       fatal("'%s' is not a valid option", argv[i]);
     }
@@ -2124,12 +2135,27 @@ static j::value run_testcases(const Options& opts) {
 
   vector<j::value> results;
   results.resize(opts.cases.size());
+  if (opts.skip_on_first_failure) {
+    for (int i = 0; i < (int)opts.cases.size(); ++i) {
+      j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
+      results[i] = j::value(testcase_result);
+      if (testcase_result["result"].to_str() != TestcaseResult::ACCEPTED) {
+        j::object skipped_result;
+        skipped_result["result"] = j::value(TestcaseResult::SKIPPED);
+        for (int j = i + 1; j < (int)opts.cases.size(); ++j) {
+          results[j] = j::value(skipped_result);
+        }
+        break;
+      }
+    }
+  } else {
 #ifdef _OPENMP
-  #pragma omp parallel for if (opts.nthread != 1 && opts.cases.size() > 1)
+    #pragma omp parallel for if (opts.nthread != 1 && opts.cases.size() > 1)
 #endif
-  for (int i = 0; i < (int)opts.cases.size(); ++i) {
-    j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
-    results[i] = j::value(testcase_result);
+    for (int i = 0; i < (int)opts.cases.size(); ++i) {
+      j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
+      results[i] = j::value(testcase_result);
+    }
   }
   return j::value(results);
 }

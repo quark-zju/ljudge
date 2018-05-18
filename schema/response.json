@@ -38,7 +38,8 @@
             "FLOAT_POINT_EXCEPTION",
             "SEGMENTATION_FAULT",
             "RUNTIME_ERROR",
-            "INTERNAL_ERROR"
+            "INTERNAL_ERROR",
+            "SKIPPED"
           ],
           "description": "Judge response for the test case"
         },
@@ -54,15 +55,15 @@
         },
         "time": {
           "type": "number",
-          "description": "CPU time used by the program, in seconds. Present only when \"exceed\" is missing"
+          "description": "CPU time used by the program, in seconds. Present only when \"exceed\" is missing, and \"result\" is not \"SKIPPED\" or \"INTERNAL_ERROR\""
         },
         "memory": {
           "type": "number",
-          "description": "Peak memory used by the program, in bytes. Present only when \"exceed\" is missing"
+          "description": "Peak memory used by the program, in bytes. Present only when \"exceed\" is missing, and \"result\" is not \"SKIPPED\" or \"INTERNAL_ERROR\""
         },
         "exitcode": {
           "type": "number",
-          "description": "Exit code of the program. Present only when the program exits normally"
+          "description": "Exit code of the program. Present only when the program exits normally, and \"result\" is not \"SKIPPED\" or \"INTERNAL_ERROR\""
         },
         "termsig": {
           "type": "number",

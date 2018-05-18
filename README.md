@@ -111,7 +111,7 @@ Notes
 Tested in:
 
 * Debian 7
-* Ubuntu 14.04
+* Ubuntu 14.04/16.04
 * Arch Linux 2014.11
 
 Some environment variables can change ljudge behavior (for debugging purpose). Therefore the environment variables must be trusted. You can also `export NDEBUG=1` before building ljudge to remove all debug related features.
