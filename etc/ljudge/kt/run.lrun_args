@@ -1,5 +1,5 @@
 --syscalls
-!execve,flock,ptrace,sync,fdatasync,fsync,msync,sync_file_range,syncfs,unshare,setns,clone[a&268435456==268435456],query_module,sysinfo,syslog,sysfs
+!execve,flock,ptrace,sync,fdatasync,fsync,msync,sync_file_range,syncfs,unshare,setns,clone[a&268435456==268435456],query_module,syslog,sysfs
 --fopen-filter
 f:/tmp/Main.jar
 R
