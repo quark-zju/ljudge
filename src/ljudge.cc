@@ -561,7 +561,8 @@ static L filter_user_lrun_args(const L& items, const string& cache_dir) {
     if (item == "--syscalls" || item == "--domainname" || item == "--hostname" || item == "--ostype" \
         || item == "--osrelease" || item == "--osversion") {
       next_safe = 1;
-    } else if (item == "--fopen-filter") {
+    } else if (item == "--fopen-filter" || item == "--tmpfs" || item == "--env") {
+      // tmpfs maybe unsafe, we only use it in R lang.
       next_safe = 2;
       if (!is_fopen_filter_supported(cache_dir)) {
         next_ignored = next_safe;

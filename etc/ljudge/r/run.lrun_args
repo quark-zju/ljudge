@@ -1,0 +1,11 @@
+# ptrace is dangerous. see http://www.kernelhub.org/?p=2&msg=72053
+--syscalls
+!execve,flock,ptrace,sync,fdatasync,fsync,msync,sync_file_range,syncfs,unshare,setns,clone[a&268435456==268435456],query_module,syslog,sysfs
+--hostname
+ljudge
+--tmpfs
+/tmpfs
+5242880
+--env
+TMPDIR
+/tmpfs
