@@ -5,7 +5,6 @@ mirror /bin/
 mirror /usr/
 mirror /lib/
 mirror /lib64/
-# ghc on Debian requires /var/lib/ghc
 mirror /var/lib/
 mirror /etc/ld.so.cache
 # debian
@@ -24,3 +23,5 @@ mirror /etc/mono/
 mirror /etc/racket/
 # vb
 mirror /etc/localtime
+# ghc
+mirror /opt/ghc/
