@@ -2026,6 +2026,8 @@ static void run_custom_checker(j::object& result, const string& etc_dir, const s
   static const int CHECKER_EXITCODE_ACCEPTED = 0;
   static const int CHECKER_EXITCODE_WRONG_ANSWER = 1;
   static const int CHECKER_EXITCODE_PRESENTATION_ERROR = 2;
+  // In most unix systems exit code is limited to 8 bits, -1 becomes 255
+  static const int LEGACY_CHECKER_EXITCODE_WRONG_ANSWER = 255;
 
   if (!lrun_result.error.empty()) {
     error_message = "lrun internal error: " + lrun_result.error;
@@ -2035,7 +2037,7 @@ static void run_custom_checker(j::object& result, const string& etc_dir, const s
     error_message = format("checker was killed by signal %d", lrun_result.term_sig);
   } else if (lrun_result.exit_code == CHECKER_EXITCODE_ACCEPTED) {
     status = TestcaseResult::ACCEPTED;
-  } else if (lrun_result.exit_code == CHECKER_EXITCODE_WRONG_ANSWER) {
+  } else if (lrun_result.exit_code == CHECKER_EXITCODE_WRONG_ANSWER || lrun_result.exit_code == LEGACY_CHECKER_EXITCODE_WRONG_ANSWER) {
     status = TestcaseResult::WRONG_ANSWER;
   } else if (lrun_result.exit_code == CHECKER_EXITCODE_PRESENTATION_ERROR) {
     status = TestcaseResult::PRESENTATION_ERROR;
