@@ -39,7 +39,7 @@ done 2>/dev/null
 # Test the legacy checker with the wrong user code. AC on first case and WA on second case.
 echo -n 'Test legacy checker: '
 src=wa.c
-RESULT=`ljudge --debug --keep-stdout --keep-stderr --user-code $src --testcase --input 1.in --output 1.out --testcase --input 2.in --output 2.out 2> $DEBUG_LOG | cat`
+RESULT=`ljudge --debug --keep-stdout --keep-stderr --user-code $src --testcase --input 1.in --output 1.out --testcase --input 2.in --output 2.out --checker-code legacy_checker.c 2> $DEBUG_LOG | cat`
 EXITCODE=$?
 if [ "$EXITCODE" != 0 ] || [ -z "$RESULT" ] || (echo1 "$RESULT" | grep -qi ERROR) || (echo1 "$RESULT" | grep -qv ACCEPT) || (echo1 "$RESULT" | grep -qv WRONG_ANSWER); then
   # Log error
