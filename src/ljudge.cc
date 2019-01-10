@@ -239,7 +239,7 @@ protected:
     if (has_lrun_empty_netns()) return true;
     if (!fs::exists("/dev/shm/ljudge-netns-attempted")) {
       log_debug("running 'lrun-netns-empty create' to create empty netns");
-      system("lrun-netns-empty create 1>/dev/null 2>/dev/null");
+      system("lrun-netns-empty create 1>" DEV_NULL " 2>" DEV_NULL);
       fs::touch("/dev/shm/ljudge-netns-attempted");
       return has_lrun_empty_netns();
     } else {
