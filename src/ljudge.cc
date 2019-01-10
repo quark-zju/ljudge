@@ -210,7 +210,11 @@ struct LrunArgs : public vector<string> {
     append("--reset-env", "true");
     append("--basic-devices", "true");
     append("--remount-dev", "true");
-    append("--network", "false");
+    if (maybe_create_lrun_empty_netns()) {
+      append("--netns", "lrun-empty");
+    } else {
+      append("--network", "false");
+    }
     append("--chdir", "/tmp");
     append("--env", "ONLINE_JUDGE", "1");
     append("--env", "HOME", "/tmp");
@@ -220,6 +224,27 @@ struct LrunArgs : public vector<string> {
     for (size_t i = 0; i < sizeof(pass_envs) / sizeof(pass_envs[0]); ++i) {
       const char *env_val = getenv(pass_envs[i]);
       if (env_val) append("--env", pass_envs[i], env_val);
+    }
+  }
+
+protected:
+
+  bool has_lrun_empty_netns() {
+    // Return true if lrun-empty netns exists
+    return fs::exists("/var/run/netns/lrun-empty");
+  }
+
+  bool maybe_create_lrun_empty_netns() {
+    // Return true if lrun-empty netns can be used
+    if (has_lrun_empty_netns()) return true;
+    if (!fs::exists("/dev/shm/ljudge-netns-attempted")) {
+      log_debug("running 'lrun-netns-empty create' to create empty netns");
+      system("lrun-netns-empty create 1>/dev/null 2>/dev/null");
+      fs::touch("/dev/shm/ljudge-netns-attempted");
+      return has_lrun_empty_netns();
+    } else {
+      log_debug("lrun-empty netns does not exist");
+      return false;
     }
   }
 };
@@ -978,10 +1003,18 @@ static void do_check() {
         lrun_help.find("--fopen-filter") != string::npos,
         "Please upgrade lrun to at least v1.1.3");
     print_checkpoint(
+        "lrun supports --netns",
+        lrun_help.find("--netns") != string::npos,
+        "Please upgrade lrun to at least v1.2.1");
+    print_checkpoint(
         "lrun actually works",
         check_output("lrun echo foofoo 2>" DEV_NULL).find("foofoo") != string::npos,
         "lrun doesn't work. Please make sure other issues are resolved\n"
         "and try `lrun --debug echo foo` to get some help.");
+    print_checkpoint(
+        "lrun-netns-empty runs",
+        check_output("lrun-netns-empty 2>" DEV_NULL).find("/lrun-empty:") != string::npos,
+        "lrun-netns-empty doesn't work. Please make sure it is installed with lrun >= 1.2.1\n");
   } while (false);
 
   do { // lrun-mirrorfs
