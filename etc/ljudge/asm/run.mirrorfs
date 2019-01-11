@@ -1,0 +1,6 @@
+mkdir /dev
+mkdir /tmp
+mirror /lib/
+mirror /lib32/
+mirror /usr/lib*/
+mirror /etc/ld.so.cache

@@ -1,0 +1,11 @@
+mkdir /dev/
+mkdir /proc/
+mkdir /tmp/
+mirror /bin/
+mirror /usr/
+mirror /lib/
+mirror /lib32/
+mirror /lib64/
+mirror /var/lib/
+mirror /etc/ld.so.cache
+mirror /etc/alternatives/
