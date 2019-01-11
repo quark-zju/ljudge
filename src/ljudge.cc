@@ -1418,9 +1418,8 @@ static Options parse_cli_options(int argc, const char *argv[]) {
       options.nthread = NEXT_NUMBER_ARG;
 #endif
     } else if (option == "skip-on-first-failure") {
-      if (options.nthread != 1) {
-        fatal("'skip-on-first-faiulure' must be applied with thread = 1")
-      }
+      // this option must be applied on single thread execution to get stable result
+      options.nthread = 1;
       options.skip_on_first_failure = true;
     } else {
       fatal("'%s' is not a valid option", argv[i]);
