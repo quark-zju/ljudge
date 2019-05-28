@@ -117,6 +117,7 @@ struct Limit {
   double real_time;  // seconds
   long long memory;  // bytes
   long long output;  // bytes
+  long long stack;   // bytes
 };
 
 struct Testcase {
@@ -178,6 +179,10 @@ struct LrunArgs : public vector<string> {
     if (limit.output > 0) {
       push_back("--max-output");
       push_back(format("%Ld", limit.output));
+    }
+    if (limit.stack > 0) {
+      push_back("--max-stack");
+      push_back(format("%Ld", limit.stack));
     }
     /* [[[end]]] */
   }
@@ -716,7 +721,7 @@ static void print_usage() {
 #endif
       "         [--skip-on-first-failure]\n"
       "         [--max-cpu-time seconds] [--max-real-time seconds]\n"
-      "         [--max-memory bytes] [--max-output bytes]\n"
+      "         [--max-memory bytes] [--max-output bytes] [--max-stack bytes]\n"
       "         [--max-checker-cpu-time seconds] [--max-checker-real-time seconds]\n"
       "         [--max-checker-memory bytes] [--max-checker-output bytes]\n"
       "         [--max-compiler-cpu-time seconds] [--max-compiler-real-time seconds]\n"
@@ -1260,8 +1265,8 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     options.direct_mode = false;
     options.nthread = 0;
     options.skip_on_first_failure = false;
-    current_case.checker_limit = { 5, 10, 1 << 30, 1 << 30 };
-    current_case.runtime_limit = { 1, 3, 1 << 26 /* 64M mem */, 1 << 25 /* 32M output */ };
+    current_case.checker_limit = { 5, 10, 1 << 30, 1 << 30, 1 << 30 };
+    current_case.runtime_limit = { 1, 3, 1 << 26 /* 64M mem */, 1 << 25 /* 32M output */, 1 << 23 /* 8M stack limit */ };
     debug_level = getenv("DEBUG") ? 10 : 0;
   }
 
@@ -1359,6 +1364,9 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     } else if (option == "max-memory") {
       REQUIRE_NARGV(1);
       current_case.runtime_limit.memory = parse_bytes(NEXT_STRING_ARG);
+    } else if (option == "max-stack") {
+      REQUIRE_NARGV(1);
+      current_case.runtime_limit.stack = parse_bytes(NEXT_STRING_ARG);
     } else if (option == "max-compiler-cpu-time") {
       REQUIRE_NARGV(1);
       options.compiler_limit.cpu_time = NEXT_NUMBER_ARG;
