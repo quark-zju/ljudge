@@ -91,21 +91,21 @@ A: The checker is used to compare the output of the user program and the standar
 4. If they are identical now, return PRESENTATION\_ERROR.
 5. Return WRONG\_ANSWER.
 
-**Q: Why JAVA won't work**
+**Q: What is the minimal supported version of Java?**
 
-A: You may use java 6. Java 6 requires `execve` syscall, which is disabled. Try to set default Java to 7. For Debian, run `update-alternatives --config java`. Alternative you can enable `execve` syscall.
+A: 7. Java 6 requires the `execve` syscall, which is disabled. Try to set default Java to 7. For Debian, run `update-alternatives --config java`. Alternative you can enable `execve` syscall.
 
 **Q: What if I want to write a custom checker?**
 
 A: Just write one and pass it to ljudge using `--checker-code`. Your checker's stdin is the standard input and it can open these files:
 
-* `"input"`: the standard input
-* `"output"`: the standard output
+* `"input"`: the reference input passed as `--testcase --input`
+* `"output"`: the reference output passed as `--testcase --output`
 * `"user_output"` (or `argv[1]`): the output of the user program
 * `"user_code"`: the source code provided using `--user-code`
 
 The checker's stdout will be captured. It should return 0 for ACCEPTED, 1 for WRONG\_ANSWER and 2 for PRESENTATION\_ERROR.  
-To be compatible with some old checkers, -1 (or 255 on most Unix systems) is WRONG\_ANSWER too. But this is not suggested. 
+To be compatible with some old checkers, -1 (or 255) means WRONG\_ANSWER too. 
 
 Notes
 -----
