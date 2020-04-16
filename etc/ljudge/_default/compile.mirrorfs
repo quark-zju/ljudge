@@ -25,3 +25,5 @@ mirror /etc/racket/
 mirror /etc/localtime
 # ghc
 mirror /opt/ghc/
+# ocaml
+mirror /opt/opam/

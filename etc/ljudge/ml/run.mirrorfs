@@ -4,4 +4,5 @@ mirror /lib/
 mirror /lib64/
 mirror /usr/lib*/
 mirror /etc/ld.so.cache
+mirror /opt/opam/
 mirror /usr/bin/ocamlrun
