@@ -1,4 +1,4 @@
-/usr/lib/R/bin/exec/R
+R
 --slave
 --vanilla
 -f

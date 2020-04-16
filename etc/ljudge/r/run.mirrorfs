@@ -8,3 +8,4 @@ mirror /etc/ld.so.cache
 
 mirror /etc/R/
 mirror /etc/alternatives/
+mirror /usr/bin/R
