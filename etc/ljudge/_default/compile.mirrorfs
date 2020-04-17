@@ -27,3 +27,5 @@ mirror /etc/localtime
 mirror /opt/ghc/
 # ocaml
 mirror /opt/opam/
+# rust
+mirror /opt/rust/

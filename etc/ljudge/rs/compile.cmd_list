@@ -1,0 +1,8 @@
+rustc
+--edition=2018
+-O
+--cfg
+ONLINE_JUDGE
+$src
+-o
+$exe
