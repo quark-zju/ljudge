@@ -1,0 +1,9 @@
+java
+-Xbootclasspath/a:/usr/share/scala/lib/jline-3.16.0.jar:/usr/share/scala/lib/jna-5.3.1.jar:/usr/share/scala/lib/scala-compiler.jar:/usr/share/scala/lib/scala-library.jar:/usr/share/scala/lib/scala-reflect.jar:/usr/share/scala/lib/scalap-2.13.4.jar
+-classpath
+""
+-Dscala.boot.class.path=/usr/share/scala/lib/jline-3.16.0.jar:/usr/share/scala/lib/jna-5.3.1.jar:/usr/share/scala/lib/scala-compiler.jar:/usr/share/scala/lib/scala-library.jar:/usr/share/scala/lib/scala-reflect.jar:/usr/share/scala/lib/scalap-2.13.4.jar
+-Dscala.home=/usr/share/scala
+-Dscala.usejavacp=true
+scala.tools.nsc.MainGenericRunner
+Main
