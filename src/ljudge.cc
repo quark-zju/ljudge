@@ -59,6 +59,7 @@ namespace j = picojson;
 // sub-directory names in cache_dir
 #define SUBDIR_USER_CODE "code"
 #define SUBDIR_CHECKER "checker"
+#define SUBDIR_INTERACTOR "interactor"
 #define SUBDIR_TEMP "tmp"
 #define SUBDIR_KERNEL_CONFIG_CACHE "kconfig"
 
@@ -129,6 +130,7 @@ struct Testcase {
   string user_stderr_path;
   Limit runtime_limit;
   Limit checker_limit;
+  Limit interactor_limit;
 };
 
 struct Options {
@@ -136,6 +138,7 @@ struct Options {
   string cache_dir;
   string user_code_path;
   string checker_code_path;
+  string interactor_code_path;
   Limit compiler_limit;
   vector<Testcase> cases;
   map<string, string> envs;
@@ -1266,6 +1269,7 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     options.nthread = 0;
     options.skip_on_first_failure = false;
     current_case.checker_limit = { 5, 10, 1 << 30, 1 << 30, 1 << 30 };
+    current_case.interactor_limit = { 5, 10, 1 << 30, 1 << 30, 1 << 30 };
     current_case.runtime_limit = { 1, 3, 1 << 26 /* 64M mem */, 1 << 25 /* 32M output */, 1 << 23 /* 8M stack limit */ };
     debug_level = getenv("DEBUG") ? 10 : 0;
   }
@@ -1306,6 +1310,9 @@ static Options parse_cli_options(int argc, const char *argv[]) {
     } else if (option == "checker-code" || option == "c") {
       REQUIRE_NARGV(1);
       options.checker_code_path = NEXT_STRING_ARG;
+    } else if (option == "interactor-code") {
+      REQUIRE_NARGV(1);
+      options.interactor_code_path = NEXT_STRING_ARG;
     } else if (option == "testcase") {
       APPEND_TEST_CASE;
     } else if (option == "env") {
@@ -1991,6 +1998,11 @@ static void prepare_checker_mount_bind_files(const string& dest) {
   fs::touch(fs::join(dest, "user_code"));
 }
 
+static void prepare_inteactor_named_pipe(const string& dest) {
+  mkfifo(fs::join(dest, "user_to_interactor").c_str(), 0666);
+  mkfifo(fs::join(dest, "interactor_to_user").c_str(), 0666);
+}
+
 static void run_custom_checker(j::object& result, const string& etc_dir, const string& cache_dir, const string& code_path, const string& checker_code_path, const map<string, string>& envs, const Testcase& testcase, const string& user_output_path) {
   log_debug("run_custom_checker: %s %s", testcase.output_path.c_str(), user_output_path.c_str());
 
@@ -2059,7 +2071,7 @@ static void run_custom_checker(j::object& result, const string& etc_dir, const s
   result["result"] = j::value(status);
 }
 
-static j::object run_testcase(const string& etc_dir, const string& cache_dir, const string& code_path, const string& checker_code_path, const map<string, string>& envs, const Testcase& testcase, bool skip_checker = false, bool keep_stdout = false, bool keep_stderr = false) {
+static j::object run_testcase(const string& etc_dir, const string& cache_dir, const string& code_path, const string & interactor_code_path, const string& checker_code_path, const map<string, string>& envs, const Testcase& testcase, bool skip_checker = false, bool keep_stdout = false, bool keep_stderr = false) {
   log_debug("run_testcase: %s", testcase.input_path.c_str());
 
   // assume user code and checker code are pre-compiled
@@ -2073,7 +2085,12 @@ static j::object run_testcase(const string& etc_dir, const string& cache_dir, co
     // should flock stdout_path, but since we use different tmp path, and it is scoped in pid dir. no more necessary
     // dest must be the same with dest used in compile_code
     string dest = get_code_work_dir(get_process_tmp_dir(cache_dir), code_path);
-    run_result = run_code(etc_dir, cache_dir, dest, code_path, testcase.runtime_limit, testcase.input_path, stdout_path, stderr_path, vector<string>() /* extra_lrun_args */, ENV_RUN /* env */);
+    if(interactor_code_path.empty()) {
+      run_result = run_code(etc_dir, cache_dir, dest, code_path, testcase.runtime_limit, testcase.input_path, stdout_path, stderr_path, vector<string>() /* extra_lrun_args */, ENV_RUN /* env */);
+    } else {
+      // run with interactor
+      run_result = run_code_with_inteactor(etc_dir, cache_dir, dest, code_path, testcase.runtime_limit, interactor_code_path, testcase.interactor_limit, testcase.input_path, stdout_path, stderr_path, vector<string>() /* extra_lrun_args */, ENV_RUN /* env */);
+    }
 
     // write stdout, stderr
     if (keep_stdout) result["stdout"] = j::value(fs::nread(stdout_path, TRUNC_LOG));
@@ -2150,7 +2167,7 @@ static j::value run_testcases(const Options& opts) {
   results.resize(opts.cases.size());
   if (opts.skip_on_first_failure) {
     for (int i = 0; i < (int)opts.cases.size(); ++i) {
-      j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
+      j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.interactor_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
       results[i] = j::value(testcase_result);
       if (testcase_result["result"].to_str() != TestcaseResult::ACCEPTED) {
         j::object skipped_result;
@@ -2166,7 +2183,7 @@ static j::value run_testcases(const Options& opts) {
     #pragma omp parallel for if (opts.nthread != 1 && opts.cases.size() > 1)
 #endif
     for (int i = 0; i < (int)opts.cases.size(); ++i) {
-      j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
+      j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.interactor_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
       results[i] = j::value(testcase_result);
     }
   }
@@ -2215,6 +2232,14 @@ int main(int argc, char const *argv[]) {
     CompileResult compile_result = compile_code(opts.etc_dir, opts.cache_dir, dest, opts.user_code_path, opts.compiler_limit);
     write_compile_result(jo, compile_result, "compilation");
     if (!compile_result.success) compiled = false;
+  }
+
+  if (compiled && !opts.interactor_code_path.empty()) { // precompile inteactor code
+    string dest = get_code_work_dir(fs::join(opts.cache_dir, SUBDIR_INTERACTOR), opts.interactor_code_path);
+    CompileResult compile_result = compile_code(opts.etc_dir, opts.cache_dir, dest, opts.interactor_code_path, opts.compiler_limit);
+    write_compile_result(jo, compile_result, "interactorCompilation");
+    if (!compile_result.success) compiled = false;
+    prepare_inteactor_named_pipe(dest);
   }
 
   if (compiled && !opts.checker_code_path.empty()) { // precompile checker code
