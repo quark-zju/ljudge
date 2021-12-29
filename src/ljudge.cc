@@ -109,6 +109,7 @@ namespace TestcaseResult {
   const string SEGMENTATION_FAULT = "SEGMENTATION_FAULT";
   const string WRONG_ANSWER = "WRONG_ANSWER";
   const string SKIPPED = "SKIPPED";
+  const string TOTAL_TIME_LIMIT_EXCEEDED= "TOTAL_TIME_LIMIT_EXCEEDED";
   /* [[[end]]] */
 };
 
@@ -146,6 +147,7 @@ struct Options {
   bool direct_mode;  // if true, just run the program and prints the result
   int nthread;  // how many testcases can run in parallel. default is decided by omp (cpu cores
   bool skip_on_first_failure;  // skip test cases after first failure occured
+  double total_time_limit;  // seconds
 };
 
 struct LrunArgs : public vector<string> {
@@ -2141,36 +2143,52 @@ static j::object run_testcase(const string& etc_dir, const string& cache_dir, co
 }
 
 static j::value run_testcases(const Options& opts) {
-  log_debug("nthread = %u", opts.nthread);
+    log_debug("nthread = %u", opts.nthread);
 #ifdef _OPENMP
-  if (opts.nthread > 0) omp_set_num_threads(opts.nthread);
+    if (opts.nthread > 0) omp_set_num_threads(opts.nthread);
 #endif
 
-  vector<j::value> results;
-  results.resize(opts.cases.size());
-  if (opts.skip_on_first_failure) {
-    for (int i = 0; i < (int)opts.cases.size(); ++i) {
-      j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
-      results[i] = j::value(testcase_result);
-      if (testcase_result["result"].to_str() != TestcaseResult::ACCEPTED) {
-        j::object skipped_result;
-        skipped_result["result"] = j::value(TestcaseResult::SKIPPED);
-        for (int j = i + 1; j < (int)opts.cases.size(); ++j) {
-          results[j] = j::value(skipped_result);
-        }
-        break;
-      }
-    }
-  } else {
+    vector<j::value> results;
+    results.resize(opts.cases.size());
+    double totalTime = 0;
+    if (!skip_on_first_failure) {
 #ifdef _OPENMP
-    #pragma omp parallel for if (opts.nthread != 1 && opts.cases.size() > 1)
+#pragma omp parallel for if (opts.nthread != 1 && opts.cases.size() > 1)
 #endif
-    for (int i = 0; i < (int)opts.cases.size(); ++i) {
-      j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
-      results[i] = j::value(testcase_result);
     }
-  }
-  return j::value(results);
+
+    for (int i = 0; i < (int)opts.cases.size(); ++i) {
+
+        if (totalTime <= opts.total_time_limit) {
+            j::object testcase_result = run_testcase(opts.etc_dir, opts.cache_dir, opts.user_code_path, opts.checker_code_path, opts.envs, opts.cases[i], opts.skip_checker, opts.keep_stdout, opts.keep_stderr);
+            results[i] = j::value(testcase_result);
+            totalTime += testcase_result["time"];
+        } else {
+            j::object limit_exceeded_result;
+            limit_exceeded_result["result"] = j::value(TestcaseResult::TOTAL_TIME_LIMIT_EXCEEDED);
+            results[i] = j::value(limit_exceeded_result);
+        }
+
+        if (skip_on_first_failure) {
+            if (totalTime > opts.total_time_limit) {
+                j::object limit_exceeded_result;
+                limit_exceeded_result["result"] = j::value(TestcaseResult::TOTAL_TIME_LIMIT_EXCEEDED);
+                for (int j = i + 1; j < (int) opts.cases.size(); ++j) {
+                    results[j] = j::value(limit_exceeded_result);
+                }
+                break;
+            }
+            if (testcase_result["result"].to_str() != TestcaseResult::ACCEPTED) {
+                j::object skipped_result;
+                skipped_result["result"] = j::value(TestcaseResult::SKIPPED);
+                for (int j = i + 1; j < (int) opts.cases.size(); ++j) {
+                    results[j] = j::value(skipped_result);
+                }
+                break;
+            }
+        }
+    }
+    return j::value(results);
 }
 
 static void print_with_color(const string& content, int color, FILE *fp = stderr) {
