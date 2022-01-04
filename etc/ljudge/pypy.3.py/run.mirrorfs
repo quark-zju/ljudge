@@ -1,0 +1,11 @@
+mkdir /dev
+mkdir /tmp
+mirror /lib/
+mirror /lib64/
+mirror /usr/lib*/
+mirror /usr/local/lib/pypy3.7/dist-packages/
+mirror /etc/ld.so.cache
+mirror /etc/alternatives/
+# required by python
+touch /etc/passwd
+mirror /usr/bin/pypy{,2*,3*}
